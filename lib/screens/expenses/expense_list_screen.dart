@@ -67,7 +67,7 @@ class _ExpenseListScreenState extends State<ExpenseListScreen> {
                     backgroundColor: Colors.red,
                     child: Icon(Icons.trending_down, color: Colors.white),
                   ),
-                  title: Text('\${expense.amount.toStringAsFixed(2)}'),
+                  title: Text('\$${expense.amount.toStringAsFixed(2)}'),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/providers/subscription_provider.dart';
+import 'package:property_management_app/widgets/limit_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../providers/property_provider.dart';
 import 'add_edit_property_screen.dart';
@@ -27,10 +29,18 @@ class _PropertyListScreenState extends State<PropertyListScreen> {
           IconButton(
             icon: Icon(Icons.add),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => AddEditPropertyScreen()),
-              );
+              final subscriptionProvider = context.read<SubscriptionProvider>();
+                if (subscriptionProvider.canAddProperty){
+                  Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => AddEditPropertyScreen()),
+                );
+              } else {
+                showDialog(
+                  context: context,
+                  builder: (_) => LimitWarningDialog(limitType: 'property'),
+                );
+              }
             },
           ),
         ],

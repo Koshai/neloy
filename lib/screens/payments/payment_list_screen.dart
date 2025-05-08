@@ -67,7 +67,7 @@ class _PaymentListScreenState extends State<PaymentListScreen> {
                     backgroundColor: Colors.green,
                     child: Icon(Icons.attach_money, color: Colors.white),
                   ),
-                  title: Text('\${payment.amount.toStringAsFixed(2)}'),
+                  title: Text('\$${payment.amount.toStringAsFixed(2)}'),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

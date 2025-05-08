@@ -38,11 +38,12 @@ class PaymentProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addPayment(Payment payment) async {
+  Future<Payment> addPayment(Payment payment) async {
     try {
       final newPayment = await _databaseService.addPayment(payment);
       _payments.add(newPayment);
       notifyListeners();
+      return newPayment;  // Return the created payment
     } catch (e) {
       throw e;
     }

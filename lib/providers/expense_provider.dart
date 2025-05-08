@@ -39,11 +39,12 @@ class ExpenseProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addExpense(Expense expense) async {
+  Future<Expense> addExpense(Expense expense) async {
     try {
       final newExpense = await _databaseService.addExpense(expense);
       _expenses.add(newExpense);
       notifyListeners();
+      return newExpense;  // Return the created expense
     } catch (e) {
       throw e;
     }

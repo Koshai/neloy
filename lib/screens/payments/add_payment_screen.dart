@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/providers/lease_provider.dart';
+import 'package:property_management_app/providers/property_provider.dart';
 import 'package:provider/provider.dart';
 import '../../models/payment.dart';
 import '../../providers/payment_provider.dart';
@@ -16,7 +18,8 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
   final _amountController = TextEditingController();
   final _notesController = TextEditingController();
   
-  String? _selectedTenant;
+   String? _selectedTenant;
+  String? _selectedLease;
   String? _selectedPaymentMethod;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = false;
@@ -24,9 +27,10 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => 
-      context.read<TenantProvider>().loadTenants()
-    );
+    Future.microtask(() {
+      context.read<TenantProvider>().loadTenants();
+      context.read<LeaseProvider>().loadAllLeases();
+    });
   }
 
   @override
@@ -60,7 +64,10 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
                       );
                     }).toList(),
                     onChanged: (value) {
-                      setState(() => _selectedTenant = value);
+                      setState(() {
+                        _selectedTenant = value;
+                        _selectedLease = null; // Reset lease when tenant changes
+                      });
                     },
                     validator: (value) {
                       if (value == null) {
@@ -71,6 +78,73 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
                   );
                 },
               ),
+              SizedBox(height: 16),
+              // Add lease selection dropdown
+              if (_selectedTenant != null)
+                Consumer<LeaseProvider>(
+                  builder: (context, provider, _) {
+                    if (provider.isLoading) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+                    
+                    final activeLeases = provider.leases
+                        .where((lease) => 
+                          lease.tenantId == _selectedTenant && 
+                          lease.status == 'active')
+                        .toList();
+                    
+                    if (activeLeases.isEmpty) {
+                      return Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Text(
+                          'No active leases found for this tenant',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      );
+                    }
+                    
+                    return Consumer<PropertyProvider>(
+                      builder: (context, propertyProvider, _) {
+                        return DropdownButtonFormField<String>(
+                          value: _selectedLease,
+                          decoration: InputDecoration(
+                            labelText: 'Lease/Property',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: activeLeases.map((lease) {
+                            // Get property info
+                            final property = propertyProvider.properties
+                                .where((p) => p.id == lease.propertyId)
+                                .firstOrNull;
+                                
+                            final propertyName = property?.address ?? 'Unknown property';
+                            
+                            return DropdownMenuItem(
+                              value: lease.id,
+                              child: Text('$propertyName - \$${lease.rentAmount}/month'),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() => _selectedLease = value);
+                            
+                            // Pre-fill amount with lease rent
+                            if (value != null) {
+                              final lease = provider.leases
+                                  .firstWhere((l) => l.id == value);
+                              _amountController.text = lease.rentAmount.toString();
+                            }
+                          },
+                          validator: (value) {
+                            if (value == null) {
+                              return 'Please select a lease';
+                            }
+                            return null;
+                          },
+                        );
+                      }
+                    );
+                  },
+                ),
               SizedBox(height: 16),
               TextFormField(
                 controller: _amountController,

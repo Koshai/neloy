@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:property_management_app/providers/lease_provider.dart';
+import 'package:property_management_app/providers/subscription_provider.dart';
+import 'package:property_management_app/screens/onboarding/onboarding_screen.dart';
+import 'package:property_management_app/screens/welcome/welcome_screen.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'providers/property_provider.dart';
@@ -21,10 +25,28 @@ void main() async {
     anonKey: AppConstants.supabaseAnonKey,
   );
 
+  // Check if first launch
+  final prefs = await SharedPreferences.getInstance();
+  final showOnboarding = !(prefs.getBool('onboarding_completed') ?? false);
+  final showWelcome = !(prefs.getBool('welcome_screen_seen') ?? false);
+  
+  // Determine initial screen
+  Widget initialScreen;
+  if (showOnboarding) {
+    initialScreen = OnboardingScreen();
+  } else {
+    final isLoggedIn = Supabase.instance.client.auth.currentUser != null;
+    if (isLoggedIn) {
+      initialScreen = showWelcome ? WelcomeScreen() : DashboardScreen();
+    } else {
+      initialScreen = LoginScreen();
+    }
+  }
+
   // Check expired leases when app starts
   await _checkExpiredLeases();
   
-  runApp(MyApp());
+  runApp(MyApp(initialScreen: initialScreen));
 }
 
 Future<void> _checkExpiredLeases() async {
@@ -33,6 +55,10 @@ Future<void> _checkExpiredLeases() async {
 }
 
 class MyApp extends StatelessWidget {
+  final Widget initialScreen;
+
+  const MyApp({required this.initialScreen});
+  
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -44,6 +70,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExpenseProvider()),
         ChangeNotifierProvider(create: (_) => DocumentProvider()),
         ChangeNotifierProvider(create: (_) => LeaseProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider())
       ],
       child: MaterialApp(
         title: 'Property Management',

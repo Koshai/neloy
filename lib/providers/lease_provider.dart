@@ -17,6 +17,20 @@ class LeaseProvider extends ChangeNotifier {
     return newLease;
   }
 
+  Future<void> loadAllLeases() async {
+  _isLoading = true;
+  notifyListeners();
+
+  try {
+    _leases = await _databaseService.getAllLeases();
+  } catch (e) {
+    print('Error loading leases: $e');
+  } finally {
+    _isLoading = false;
+    notifyListeners();
+  }
+}
+
   Future<void> loadLeasesByProperty(String propertyId) async {
     _isLoading = true;
     notifyListeners();
@@ -43,5 +57,12 @@ class LeaseProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<List<Lease>> getAllLeasesForReport() async {
+    if (leases.isEmpty) {
+      await loadAllLeases();
+    }
+    return leases;
   }
 }

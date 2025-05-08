@@ -79,6 +79,17 @@ Future<List<Lease>> getExpiredLeases(DateTime currentDate) async {
       .toList();
 }
 
+Future<List<Lease>> getAllLeases() async {
+  final response = await _supabase
+      .from('leases')
+      .select()
+      .order('created_at', ascending: false);
+
+  return (response as List)
+      .map((item) => Lease.fromJson(item))
+      .toList();
+}
+
 Future<void> updateLeaseStatus(String leaseId, String status) async {
   await _supabase
       .from('leases')
@@ -118,8 +129,28 @@ Future<List<Document>> getTenantDocuments(String tenantId) async {
       .toList();
 }
 
+Future<List<Document>> getPropertyDocuments(String propertyId) async {
+  final response = await _supabase
+      .from('documents')
+      .select()
+      .eq('property_id', propertyId)
+      .order('created_at', ascending: false);
+
+  return (response as List)
+      .map((item) => Document.fromJson(item))
+      .toList();
+}
+
+Future<void> deleteDocument(String documentId) async {
+  await _supabase
+      .from('documents')
+      .delete()
+      .eq('id', documentId);
+}
+
 Future<Document> addDocument({
-  required String tenantId,
+  String? tenantId,
+  String? propertyId,  // Changed from required to optional
   required String documentType,
   required String filePath,
   required String fileName,
@@ -129,6 +160,7 @@ Future<Document> addDocument({
       .insert({
         'user_id': _supabase.auth.currentUser!.id,
         'tenant_id': tenantId,
+        'property_id': propertyId,
         'document_type': documentType,
         'file_path': filePath,
         'file_name': fileName,

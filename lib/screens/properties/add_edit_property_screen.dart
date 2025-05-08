@@ -168,7 +168,7 @@ class _AddEditPropertyScreenState extends State<AddEditPropertyScreen> {
           createdAt: widget.property?.createdAt ?? DateTime.now(),
         );
 
-        await context.read<PropertyProvider>().addProperty(property);
+        await context.read<PropertyProvider>().addProperty(context, property);
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

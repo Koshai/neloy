@@ -40,9 +40,28 @@ class _AddTenantWithLeaseScreenState extends State<AddTenantWithLeaseScreen> {
   void initState() {
     super.initState();
     _selectedProperty = widget.preSelectedPropertyId;
-    Future.microtask(() => 
-      context.read<PropertyProvider>().loadProperties()
-    );
+    Future.microtask(() {
+      context.read<PropertyProvider>().loadProperties();
+      
+      // Check if preselected property is available
+      if (widget.preSelectedPropertyId != null) {
+        Future.delayed(Duration(milliseconds: 500), () {
+          final property = context.read<PropertyProvider>().properties
+              .where((p) => p.id == widget.preSelectedPropertyId)
+              .firstOrNull;
+              
+          if (property != null && !property.isAvailable) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Warning: This property is marked as not available'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -122,11 +141,14 @@ class _AddTenantWithLeaseScreenState extends State<AddTenantWithLeaseScreen> {
                       border: OutlineInputBorder(),
                     ),
                     items: provider.properties
-                        .where((property) => property.isAvailable) // Filter available properties
+                        .where((property) => property.isAvailable || property.id == _selectedProperty)
                         .map((property) {
                       return DropdownMenuItem(
                         value: property.id,
-                        child: Text(property.address),
+                        child: Text(
+                          property.address + 
+                          (property.isAvailable ? '' : ' (Not Available)'),
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {

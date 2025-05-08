@@ -7,6 +7,10 @@ import '../../utils/constants.dart';
 import 'package:intl/intl.dart';
 
 class AddExpenseScreen extends StatefulWidget {
+  final String? preSelectedPropertyId;
+
+  const AddExpenseScreen({this.preSelectedPropertyId});
+
   @override
   _AddExpenseScreenState createState() => _AddExpenseScreenState();
 }
@@ -24,6 +28,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedProperty = widget.preSelectedPropertyId;
     Future.microtask(() => 
       context.read<PropertyProvider>().loadProperties()
     );

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class FileStorageService {
   final _supabase = Supabase.instance.client;
@@ -13,6 +14,7 @@ class FileStorageService {
     final filePath = '${folder}/${DateTime.now().millisecondsSinceEpoch}_${fileName}';
     
     final bytes = await file.readAsBytes();
+    final fileExt = fileName.split('.').last;
     
     await _supabase.storage
         .from(bucket)
@@ -20,7 +22,7 @@ class FileStorageService {
           filePath,
           bytes,
           fileOptions: FileOptions(
-            contentType: _getContentType(fileName.split('.').last),
+            contentType: _getContentType(fileExt),
           ),
         );
 
@@ -36,7 +38,8 @@ class FileStorageService {
           .from(bucket)
           .download(path);
 
-      final file = File('${Directory.systemTemp.path}/${path.split('/').last}');
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/${path.split('/').last}');
       await file.writeAsBytes(bytes);
       return file;
     } catch (e) {
@@ -45,8 +48,8 @@ class FileStorageService {
     }
   }
 
-  String _getContentType(String? extension) {
-    switch (extension?.toLowerCase()) {
+  String _getContentType(String extension) {
+    switch (extension.toLowerCase()) {
       case 'pdf':
         return 'application/pdf';
       case 'doc':

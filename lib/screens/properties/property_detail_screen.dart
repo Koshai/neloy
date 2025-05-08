@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/models/expense.dart';
+import 'package:property_management_app/models/payment.dart';
 import 'package:property_management_app/providers/property_provider.dart';
 import 'package:property_management_app/screens/tenants/add_tenant_with_lease_screen.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +9,8 @@ import '../../providers/tenant_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../providers/payment_provider.dart';
 import '../documents/pdf_viewer_screen.dart';
+import '../documents/property_documents_screen.dart';
+import '../expenses/add_expense_screen.dart';
 import 'add_edit_property_screen.dart';
 import 'package:intl/intl.dart';
 import '../../providers/lease_provider.dart';
@@ -23,6 +27,9 @@ class PropertyDetailScreen extends StatefulWidget {
 }
 
 class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
+  List<Expense> _recentExpenses = [];
+  List<Payment> _recentPayments = [];
+
   @override
   void initState() {
     super.initState();
@@ -30,9 +37,28 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Future<void> _loadPropertyData() async {
-    // Here you would load tenants, expenses, and payments for this property
-    // This is simplified for now
+    // Load leases for this property
     await context.read<LeaseProvider>().loadLeasesByProperty(widget.property.id);
+    
+    // Load expenses for this property
+    await context.read<ExpenseProvider>().loadExpensesByProperty(widget.property.id);
+    setState(() {
+      _recentExpenses = context.read<ExpenseProvider>().expenses.take(3).toList();
+    });
+    
+    // Find active leases for this property to load payments
+    final leases = context.read<LeaseProvider>().leases;
+    if (leases.isNotEmpty) {
+      // For each lease, load payments
+      for (final lease in leases) {
+        await context.read<PaymentProvider>().loadPaymentsByLease(lease.id);
+      }
+      
+      // Get all payments
+      setState(() {
+        _recentPayments = context.read<PaymentProvider>().payments.take(3).toList();
+      });
+    }
   }
 
   @override
@@ -108,16 +134,53 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       crossAxisSpacing: 8,
                       mainAxisSpacing: 8,
                       children: [
-                        _buildActionButton('Add Tenant', Icons.person_add, Colors.blue, () {Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddTenantWithLeaseScreen(
-                              preSelectedPropertyId: widget.property.id,
-                            ),
-                          ),
-                        );}),
-                        _buildActionButton('Add Expense', Icons.receipt, Colors.red, () {}),
-                        _buildActionButton('View Documents', Icons.folder, Colors.orange, () {}),
+                        _buildActionButton(
+                          'Add Tenant',
+                          Icons.person_add,
+                          widget.property.isAvailable ? Colors.blue : Colors.grey,
+                          widget.property.isAvailable
+                            ? () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => AddTenantWithLeaseScreen(
+                                      preSelectedPropertyId: widget.property.id,
+                                    ),
+                                  ),
+                                );
+                              }
+                            : () {}, // Provide an empty function to satisfy non-nullable VoidCallback
+                        ),
+                        _buildActionButton(
+                          'Add Expense',
+                          Icons.receipt,
+                          Colors.red,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddExpenseScreen(
+                                  preSelectedPropertyId: widget.property.id,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildActionButton(
+                          'View Documents',
+                          Icons.folder,
+                          Colors.orange,
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PropertyDocumentsScreen(
+                                  property: widget.property,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ],
@@ -271,8 +334,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                           ],
                         ),
                         SizedBox(height: 16),
-                        // TODO: Display recent expenses
-                        Text('No recent expenses'),
+                        _recentExpenses.isEmpty 
+                          ? Text('No recent expenses')
+                          : Column(
+                              children: _recentExpenses.map((expense) => 
+                                ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.red,
+                                    child: Icon(Icons.trending_down, color: Colors.white, size: 16),
+                                  ),
+                                  title: Text('\$${expense.amount.toStringAsFixed(2)}'),
+                                  subtitle: Text('${expense.expenseType} - ${DateFormat('MMM dd, yyyy').format(expense.expenseDate)}'),
+                                )
+                              ).toList(),
+                            ),
                       ],
                     ),
                   ),
@@ -306,8 +381,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                           ],
                         ),
                         SizedBox(height: 16),
-                        // TODO: Display recent payments
-                        Text('No recent payments'),
+                        _recentPayments.isEmpty 
+                          ? Text('No recent payments')
+                          : Column(
+                              children: _recentPayments.map((payment) => 
+                                ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.green,
+                                    child: Icon(Icons.attach_money, color: Colors.white, size: 16),
+                                  ),
+                                  title: Text('\$${payment.amount.toStringAsFixed(2)}'),
+                                  subtitle: Text('${DateFormat('MMM dd, yyyy').format(payment.paymentDate)}'),
+                                )
+                              ).toList(),
+                            ),
                       ],
                     ),
                   ),

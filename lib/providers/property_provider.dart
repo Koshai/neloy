@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/providers/subscription_provider.dart';
 import '../models/property.dart';
 import '../services/database_service.dart';
+import 'package:provider/provider.dart';
 
 class PropertyProvider extends ChangeNotifier {
   final _databaseService = DatabaseService();
@@ -25,11 +27,14 @@ class PropertyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addProperty(Property property) async {
+  Future<void> addProperty(BuildContext context, Property property) async {
     try {
       final newProperty = await _databaseService.addProperty(property);
       _properties.add(newProperty);
       notifyListeners();
+
+      // Update subscription provider
+      context.read<SubscriptionProvider>().refreshUsageCounts();
     } catch (e) {
       throw e;
     }

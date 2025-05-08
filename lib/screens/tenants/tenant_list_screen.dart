@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/providers/subscription_provider.dart';
 import 'package:property_management_app/screens/tenants/add_tenant_with_lease_screen.dart';
+import 'package:property_management_app/widgets/limit_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../providers/tenant_provider.dart';
 import 'add_edit_tenant_screen.dart';
@@ -28,10 +30,18 @@ class _TenantListScreenState extends State<TenantListScreen> {
           IconButton(
             icon: Icon(Icons.add),
             onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => AddTenantWithLeaseScreen()),
-              );
+              final subscriptionProvider = context.read<SubscriptionProvider>();
+              if (subscriptionProvider.canAddTenant) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => AddEditTenantScreen()),
+                );
+              } else {
+                showDialog(
+                  context: context,
+                  builder: (_) => LimitWarningDialog(limitType: 'tenant'),
+                );
+              }
             },
           ),
         ],
