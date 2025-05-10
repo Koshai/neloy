@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:property_management_app/providers/subscription_provider.dart';
+import 'package:property_management_app/screens/tenants/add_edit_tenant_screen.dart';
+import 'package:property_management_app/services/database_service.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:property_management_app/widgets/limit_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../models/tenant.dart';
@@ -11,7 +14,7 @@ import '../../providers/document_provider.dart';
 import '../../providers/lease_provider.dart';
 import '../../providers/property_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:open_file/open_file.dart';  // Add this import
+import 'package:open_file/open_file.dart';
 
 class TenantDetailScreen extends StatefulWidget {
   final Tenant tenant;
@@ -28,21 +31,80 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTenantData();
+    // First ensure full sync to avoid data inconsistencies
+    _fullSyncAndLoadData();
+  }
+
+  Future<void> _fullSyncAndLoadData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // First do a full data sync to ensure consistency across the app
+      await DataSyncService().syncAll(context);
+      
+      // Then load tenant-specific data
+      await _loadTenantData();
+    } catch (e) {
+      print('Error loading tenant data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading tenant data: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Future<void> _loadTenantData() async {
-    setState(() => _isLoading = true);
     try {
       // Load both documents and leases
       await context.read<DocumentProvider>().loadTenantDocuments(widget.tenant.id);
       await context.read<LeaseProvider>().loadLeasesByTenant(widget.tenant.id);
       await context.read<PropertyProvider>().loadProperties();
     } catch (e) {
-      print('Error loading tenant data: $e');
-    } finally {
-      setState(() => _isLoading = false);
+      print('Error loading tenant-specific data: $e');
     }
+  }
+
+  void _confirmDeleteTenant(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Tenant'),
+        content: Text(
+          'Are you sure you want to delete this tenant? This will also delete all associated leases, payments, and documents. This action cannot be undone.'
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                Navigator.pop(context); // Close dialog
+                await DatabaseService().deleteTenant(widget.tenant.id);
+                // Sync all data after deletion
+                await DataSyncService().syncAll(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Tenant deleted successfully')),
+                );
+                Navigator.pop(context); // Go back to tenant list
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error deleting tenant: $e')),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -50,6 +112,31 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.tenant.firstName} ${widget.tenant.lastName}'),
+        actions: [
+          // Add refresh button
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _fullSyncAndLoadData,
+          ),
+          IconButton(
+            icon: Icon(Icons.edit),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddEditTenantScreen(tenant: widget.tenant),
+                ),
+              ).then((_) {
+                // Refresh data when returning from edit screen
+                _fullSyncAndLoadData();
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.delete),
+            onPressed: () => _confirmDeleteTenant(context),
+          ),
+        ],
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -87,7 +174,8 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                     ),
                   ),
                   
-                  // Lease Information
+                  // Rest of your code...
+                  // Lease Information section
                   Card(
                     margin: EdgeInsets.all(16),
                     child: Padding(
@@ -168,7 +256,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                     ),
                   ),
                   
-                  // Documents Section
+                  // Documents Section with your existing code
                   Card(
                     margin: EdgeInsets.all(16),
                     child: Padding(
@@ -240,125 +328,128 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   }
 
   Future<void> _uploadDocument() async {
-    // Check if user can add more documents
-    if (!context.read<SubscriptionProvider>().canAddDocument) {
-      showDialog(
-        context: context,
-        builder: (_) => LimitWarningDialog(limitType: 'document'),
-      );
-      return;
-    }
+   // Check if user can add more documents
+   if (!context.read<SubscriptionProvider>().canAddDocument) {
+     showDialog(
+       context: context,
+       builder: (_) => LimitWarningDialog(limitType: 'document'),
+     );
+     return;
+   }
 
-    final ImagePicker picker = ImagePicker();
-    
-    // Show dialog to choose between camera and gallery
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Upload Document'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.photo_library),
-                title: Text('Choose from Gallery'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    _handleUpload(image);
-                  }
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.camera_alt),
-                title: Text('Take Photo'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final XFile? image = await picker.pickImage(source: ImageSource.camera);
-                  if (image != null) {
-                    _handleUpload(image);
-                  }
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+   final ImagePicker picker = ImagePicker();
+   
+   // Show dialog to choose between camera and gallery
+   showDialog(
+     context: context,
+     builder: (BuildContext context) {
+       return AlertDialog(
+         title: Text('Upload Document'),
+         content: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             ListTile(
+               leading: Icon(Icons.photo_library),
+               title: Text('Choose from Gallery'),
+               onTap: () async {
+                 Navigator.pop(context);
+                 final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                 if (image != null) {
+                   _handleUpload(image);
+                 }
+               },
+             ),
+             ListTile(
+               leading: Icon(Icons.camera_alt),
+               title: Text('Take Photo'),
+               onTap: () async {
+                 Navigator.pop(context);
+                 final XFile? image = await picker.pickImage(source: ImageSource.camera);
+                 if (image != null) {
+                   _handleUpload(image);
+                 }
+               },
+             ),
+           ],
+         ),
+       );
+     },
+   );
+ }
 
-  Future<void> _handleUpload(XFile file) async {
-    try {
-      // Convert to File
-      final File imageFile = File(file.path);
-      
-      // Get the file extension for document type
-      final String fileExt = file.path.split('.').last.toLowerCase();
-      
-      // Upload to Supabase Storage
-      final path = await FileStorageService().uploadFile(
-        file: imageFile,
-        bucket: 'tenant-documents',
-        folder: widget.tenant.id,
-      );
-      
-      // Save document reference to database
-      await context.read<DocumentProvider>().addDocument(
-        tenantId: widget.tenant.id,
-        propertyId: null,
-        documentType: fileExt,
-        filePath: path,
-        fileName: file.name,
-      );
+ Future<void> _handleUpload(XFile file) async {
+   try {
+     // Convert to File
+     final File imageFile = File(file.path);
+     
+     // Get the file extension for document type
+     final String fileExt = file.path.split('.').last.toLowerCase();
+     
+     // Upload to Supabase Storage
+     final path = await FileStorageService().uploadFile(
+       file: imageFile,
+       bucket: 'tenant-documents',
+       folder: widget.tenant.id,
+     );
+     
+     // Save document reference to database
+     await context.read<DocumentProvider>().addDocument(
+       tenantId: widget.tenant.id,
+       propertyId: null,
+       documentType: fileExt,
+       filePath: path,
+       fileName: file.name,
+     );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Document uploaded successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error uploading document: $e')),
-      );
-    }
-  }
+     // Sync all data after document upload
+     await DataSyncService().syncAll(context);
 
-  Future<void> _viewDocument(dynamic document) async {
-    try {
-      final file = await FileStorageService().downloadFile(
-        bucket: 'tenant-documents',
-        path: document.filePath,
-      );
-      
-      if (file != null) {
-        // Use the device's default app to open the file
-        final result = await OpenFile.open(file.path);
-        if (result.type != ResultType.done) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: ${result.message}')),
-          );
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error opening document: $e')),
-      );
-    }
-  }
+     ScaffoldMessenger.of(context).showSnackBar(
+       SnackBar(content: Text('Document uploaded successfully')),
+     );
+   } catch (e) {
+     ScaffoldMessenger.of(context).showSnackBar(
+       SnackBar(content: Text('Error uploading document: $e')),
+     );
+   }
+ }
 
-  IconData _getDocumentIcon(String documentType) {
-    switch (documentType.toLowerCase()) {
-      case 'pdf':
-        return Icons.picture_as_pdf;
-      case 'doc':
-      case 'docx':
-        return Icons.description;
-      case 'jpg':
-      case 'jpeg':
-      case 'png':
-        return Icons.image;
-      default:
-        return Icons.insert_drive_file;
-    }
-  }
+ Future<void> _viewDocument(dynamic document) async {
+   try {
+     final file = await FileStorageService().downloadFile(
+       bucket: 'tenant-documents',
+       path: document.filePath,
+     );
+     
+     if (file != null) {
+       // Use the device's default app to open the file
+       final result = await OpenFile.open(file.path);
+       if (result.type != ResultType.done) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(content: Text('Error: ${result.message}')),
+         );
+       }
+     }
+   } catch (e) {
+     ScaffoldMessenger.of(context).showSnackBar(
+       SnackBar(content: Text('Error opening document: $e')),
+     );
+   }
+ }
+
+ IconData _getDocumentIcon(String documentType) {
+   switch (documentType.toLowerCase()) {
+     case 'pdf':
+       return Icons.picture_as_pdf;
+     case 'doc':
+     case 'docx':
+       return Icons.description;
+     case 'jpg':
+     case 'jpeg':
+     case 'png':
+       return Icons.image;
+     default:
+       return Icons.insert_drive_file;
+   }
+ }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/property.dart';
 import '../../providers/property_provider.dart';
@@ -166,9 +167,18 @@ class _AddEditPropertyScreenState extends State<AddEditPropertyScreen> {
           purchasePrice: double.tryParse(_purchasePriceController.text),
           currentValue: double.tryParse(_currentValueController.text),
           createdAt: widget.property?.createdAt ?? DateTime.now(),
+          isAvailable: widget.property?.isAvailable ?? true,
         );
 
-        await context.read<PropertyProvider>().addProperty(context, property);
+        // Check if we're editing an existing property or adding a new one
+        if (widget.property != null) {
+          // Update existing property
+          await context.read<PropertyProvider>().updateProperty(property);
+        } else {
+          // Add new property
+          await context.read<PropertyProvider>().addProperty(context, property);
+        }
+        await DataSyncService().syncAll(context);
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

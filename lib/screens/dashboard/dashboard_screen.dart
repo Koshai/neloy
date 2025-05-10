@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/providers/lease_provider.dart';
 import 'package:property_management_app/providers/subscription_provider.dart';
 import 'package:property_management_app/screens/calendar/calendar_screen.dart';
 import 'package:property_management_app/screens/subscription/subscription_screen.dart';
 import 'package:property_management_app/services/lease_service.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/property_provider.dart';
@@ -22,10 +24,26 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  bool _isLoading = false;
   @override
   void initState() {
     super.initState();
     _checkAndUpdateLeases();
+
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Perform full data sync
+      await DataSyncService().syncAll(context);
+    } catch (e) {
+      print('DASHBOARD: Error in initial data sync: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _checkAndUpdateLeases() async {
@@ -114,8 +132,44 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         title: Text('Property Management Dashboard'),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: _loadDashboardData,
+            icon: Icon(Icons.sync),
+            tooltip: 'Sync All Data',
+            onPressed: () async {
+              // Show syncing indicator
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Text('Syncing data...'),
+                    ],
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              
+              // Perform full sync
+              await DataSyncService().syncAll(context);
+              
+              // Update UI
+              setState(() {});
+              
+              // Show success message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Data synchronized successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
           ),
           IconButton(
             icon: Icon(Icons.logout),

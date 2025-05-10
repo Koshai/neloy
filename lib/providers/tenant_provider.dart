@@ -30,4 +30,35 @@ class TenantProvider extends ChangeNotifier {
     notifyListeners();
     return newTenant; // Return the saved tenant
   }
+
+  Future<void> updateTenant(Tenant tenant) async {
+    try {
+      final updatedTenant = await _databaseService.updateTenant(tenant);
+      final index = _tenants.indexWhere((t) => t.id == tenant.id);
+      if (index != -1) {
+        _tenants[index] = updatedTenant;
+        notifyListeners();
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> deleteTenant(String tenantId) async {
+    try {
+      await _databaseService.deleteTenant(tenantId);
+      _tenants.removeWhere((tenant) => tenant.id == tenantId);
+      notifyListeners();
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> refreshData() async {
+    try {
+      await loadTenants();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/tenant.dart';
 import '../../models/lease.dart';
@@ -276,7 +277,7 @@ class _AddTenantWithLeaseScreenState extends State<AddTenantWithLeaseScreen> {
         );
 
         await context.read<LeaseProvider>().addLease(lease);
-        
+        await DataSyncService().syncAll(context);
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

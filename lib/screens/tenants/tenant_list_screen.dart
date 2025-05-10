@@ -32,9 +32,41 @@ class _TenantListScreenState extends State<TenantListScreen> {
             onPressed: () {
               final subscriptionProvider = context.read<SubscriptionProvider>();
               if (subscriptionProvider.canAddTenant) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => AddEditTenantScreen()),
+                // Show dialog to choose between adding just a tenant or with lease
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Add Tenant'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: Icon(Icons.person_add),
+                          title: Text('Add Tenant Only'),
+                          subtitle: Text('Create tenant without assigning to a property'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AddEditTenantScreen()),
+                            );
+                          },
+                        ),
+                        ListTile(
+                          leading: Icon(Icons.home),
+                          title: Text('Add Tenant with Lease'),
+                          subtitle: Text('Create tenant and assign to a property'),
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => AddTenantWithLeaseScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 );
               } else {
                 showDialog(

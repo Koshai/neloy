@@ -65,4 +65,12 @@ class LeaseProvider extends ChangeNotifier {
     }
     return leases;
   }
+
+  Future<void> refreshData() async {
+    try {
+      await loadAllLeases();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

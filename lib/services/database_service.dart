@@ -148,6 +148,48 @@ Future<void> deleteDocument(String documentId) async {
       .eq('id', documentId);
 }
 
+Future<Property> updateProperty(Property property) async {
+  final response = await _supabase
+      .from('properties')
+      .update(property.toJson())
+      .eq('id', property.id)
+      .select()
+      .single();
+
+  return Property.fromJson(response);
+}
+
+Future<bool> canDeleteProperty(String propertyId) async {
+  // Check if there are active leases for this property
+  final response = await _supabase
+      .from('leases')
+      .select('id')
+      .eq('property_id', propertyId)
+      .eq('status', 'active');
+  
+  return (response as List).isEmpty;
+}
+
+Future<void> deleteProperty(String propertyId) async {
+  // First delete associated documents
+  await _supabase
+      .from('documents')
+      .delete()
+      .eq('property_id', propertyId);
+      
+  // Delete property expenses
+  await _supabase
+      .from('expenses')
+      .delete()
+      .eq('property_id', propertyId);
+      
+  // Delete property
+  await _supabase
+      .from('properties')
+      .delete()
+      .eq('id', propertyId);
+}
+
 Future<Document> addDocument({
   String? tenantId,
   String? propertyId,  // Changed from required to optional
@@ -193,6 +235,51 @@ Future<Tenant> addTenant(Tenant tenant) async {
     return (response as List)
         .map((item) => Tenant.fromJson(item))
         .toList();
+  }
+
+  Future<Tenant> updateTenant(Tenant tenant) async {
+    final response = await _supabase
+        .from('tenants')
+        .update(tenant.toJson())
+        .eq('id', tenant.id)
+        .select()
+        .single();
+
+    return Tenant.fromJson(response);
+  }
+
+  Future<void> deleteTenant(String tenantId) async {
+  // First get all leases for this tenant
+    final leases = await _supabase
+        .from('leases')
+        .select('id')
+        .eq('tenant_id', tenantId);
+        
+    // Delete associated payments
+    for (var lease in leases) {
+      await _supabase
+          .from('payments')
+          .delete()
+          .eq('lease_id', lease['id']);
+    }
+    
+    // Delete leases
+    await _supabase
+        .from('leases')
+        .delete()
+        .eq('tenant_id', tenantId);
+        
+    // Delete documents
+    await _supabase
+        .from('documents')
+        .delete()
+        .eq('tenant_id', tenantId);
+        
+    // Delete tenant
+    await _supabase
+        .from('tenants')
+        .delete()
+        .eq('id', tenantId);
   }
 
   // Payments

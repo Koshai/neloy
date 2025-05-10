@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:property_management_app/providers/lease_provider.dart';
 import 'package:property_management_app/providers/property_provider.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/payment.dart';
 import '../../providers/payment_provider.dart';
@@ -225,12 +226,14 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
     if (_formKey.currentState?.validate() ?? false) {
       setState(() => _isLoading = true);
       try {
-        // Here we would need to get the associated lease ID from tenant
-        final leaseId = 'dummy-lease-id'; // This should be obtained from selected tenant
+        // We need to use the actual selected lease ID
+        if (_selectedLease == null) {
+          throw 'Please select a lease';
+        }
         
         final payment = Payment(
           id: '',
-          leaseId: leaseId,
+          leaseId: _selectedLease!, // Using the selected lease ID
           amount: double.parse(_amountController.text),
           paymentDate: _selectedDate,
           paymentMethod: _selectedPaymentMethod,
@@ -239,6 +242,7 @@ class _AddPaymentScreenState extends State<AddPaymentScreen> {
         );
 
         await context.read<PaymentProvider>().addPayment(payment);
+        await DataSyncService().syncAll(context);
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(

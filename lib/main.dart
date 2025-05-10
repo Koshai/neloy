@@ -81,6 +81,7 @@ class MyApp extends StatelessWidget {
             backgroundColor: Colors.blue,
           ),
         ),
+        navigatorObservers: [RouteObserver<ModalRoute<void>>()],
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {
             if (auth.isLoggedIn) {

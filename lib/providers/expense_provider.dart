@@ -72,4 +72,12 @@ class ExpenseProvider extends ChangeNotifier {
       throw e;
     }
   }
+
+  Future<void> refreshData() async {
+    try {
+      await loadAllExpenses();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

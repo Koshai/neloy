@@ -56,4 +56,35 @@ class PropertyProvider extends ChangeNotifier {
       throw e;
     }
   }
+
+  Future<void> updateProperty(Property property) async {
+    try {
+      final updatedProperty = await _databaseService.updateProperty(property);
+      final index = _properties.indexWhere((p) => p.id == property.id);
+      if (index != -1) {
+        _properties[index] = updatedProperty;
+        notifyListeners();
+      }
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> deleteProperty(String propertyId) async {
+    try {
+      await _databaseService.deleteProperty(propertyId);
+      _properties.removeWhere((property) => property.id == propertyId);
+      notifyListeners();
+    } catch (e) {
+      throw e;
+    }
+  }
+
+  Future<void> refreshData() async {
+    try {
+      await loadProperties();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

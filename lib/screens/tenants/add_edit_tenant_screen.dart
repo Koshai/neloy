@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/tenant.dart';
 import '../../providers/tenant_provider.dart';
@@ -120,8 +121,15 @@ class _AddEditTenantScreenState extends State<AddEditTenantScreen> {
           createdAt: widget.tenant?.createdAt ?? DateTime.now(),
         );
 
-        await context.read<TenantProvider>().addTenant(tenant);
-        Navigator.pop(context);
+        // Check if we're editing an existing tenant or adding a new one
+        if (widget.tenant != null) {
+          // Update existing tenant
+          await context.read<TenantProvider>().updateTenant(tenant);
+        } else {
+          // Add new tenant
+          await context.read<TenantProvider>().addTenant(tenant);
+        }
+        await DataSyncService().syncAll(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString())),

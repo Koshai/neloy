@@ -225,4 +225,12 @@ class SubscriptionProvider extends ChangeNotifier {
     await loadUsageCounts();
     notifyListeners();
   }
+
+  Future<void> refreshData() async {
+    try {
+      await refreshUsageCounts();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

@@ -71,4 +71,12 @@ class PaymentProvider extends ChangeNotifier {
       throw e;
     }
   }
+
+  Future<void> refreshData() async {
+    try {
+      await loadAllPayments();
+    } catch (e) {
+      print('Error refreshing data: $e');
+    }
+  }
 }

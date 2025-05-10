@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/expense.dart';
 import '../../providers/expense_provider.dart';
@@ -173,6 +174,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         );
 
         await context.read<ExpenseProvider>().addExpense(expense);
+        await DataSyncService().syncAll(context);
         Navigator.pop(context);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
