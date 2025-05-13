@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/payment_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../providers/property_provider.dart';
@@ -11,6 +12,9 @@ import '../../models/lease.dart';
 import '../../utils/constants.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import '../../services/pdf_service.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class ProfitLossScreen extends StatefulWidget {
   @override
@@ -24,6 +28,97 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> with SingleTickerPr
   bool _isLoading = false;
   String? _selectedPropertyId;
   late TabController _tabController;
+
+  Future<void> _exportToPdf() async {
+    final pdfService = PdfService();
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // Get current user name
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      final username = currentUser?.email?.split('@').first ?? 'Property Manager';
+      
+      if (_tabController.index == 0) {
+        // Export Overall P&L
+        if (_overallData.isEmpty) {
+          _showExportError('No data available for export. Please select a month with data.');
+          return;
+        }
+        
+        final pdfFile = await pdfService.generateOverallProfitLossPdf(
+          reportPeriod: _selectedMonth,
+          overallData: _overallData,
+          username: username,
+        );
+        
+        // Share the PDF
+        await pdfService.sharePdf(pdfFile);
+        
+      } else {
+        // Export Property P&L tab
+        if (_selectedPropertyId == null) {
+          // Export property comparison
+          if (_propertyData.isEmpty) {
+            _showExportError('No data available for export. Please select a month with data.');
+            return;
+          }
+          
+          final pdfFile = await pdfService.generatePropertyComparisonPdf(
+            reportPeriod: _selectedMonth,
+            propertiesData: _propertyData,
+            properties: context.read<PropertyProvider>().properties,
+            username: username,
+          );
+          
+          // Share the PDF
+          await pdfService.sharePdf(pdfFile);
+          
+        } else {
+          // Export specific property P&L
+          if (!_propertyData.containsKey(_selectedPropertyId)) {
+            _showExportError('No data available for the selected property. Please select a month with data.');
+            return;
+          }
+          
+          final property = context.read<PropertyProvider>().properties
+              .firstWhere((p) => p.id == _selectedPropertyId);
+              
+          final pdfFile = await pdfService.generatePropertyProfitLossPdf(
+            reportPeriod: _selectedMonth,
+            propertyData: _propertyData[_selectedPropertyId]!,
+            property: property,
+            username: username,
+          );
+          
+          // Share the PDF
+          await pdfService.sharePdf(pdfFile);
+        }
+      }
+    } catch (e) {
+      print('Error exporting to PDF: $e');
+      _showExportError('Failed to export PDF: ${e.toString()}');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Helper method to show error dialog for PDF export
+  void _showExportError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Export Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
 
   // Expense categories from AppConstants
   List<String> expenseCategories = AppConstants.expenseTypes;
@@ -56,6 +151,14 @@ class _ProfitLossScreenState extends State<ProfitLossScreen> with SingleTickerPr
     return Scaffold(
       appBar: AppBar(
         title: Text('Financial Reports'),
+        actions: [
+          // PDF Export Button
+          IconButton(
+            icon: Icon(Icons.picture_as_pdf),
+            tooltip: 'Export to PDF',
+            onPressed: _exportToPdf,
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           tabs: [

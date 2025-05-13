@@ -1,7 +1,9 @@
 class AppConstants {
   static const String supabaseUrl = 'https://enxmmalzlpmjphitonyx.supabase.co';
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVueG1tYWx6bHBtanBoaXRvbnl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDYzNjU5NzYsImV4cCI6MjA2MTk0MTk3Nn0.DPhJmPz67GNWjtv0m6t_tfo7rhgHFUym1vB75rTdvOY';
-  
+  static const String appScheme = 'propertymanagerapp';
+  static const String backendUrl = 'https://enxmmalzlpmjphitonyx.supabase.co/functions/v1';
+  static const String stripePublishableKey = 'pk_test_519hsF8FHQ9IY1M5xVMpflR1gZLbojHtDXbrNMlNdnvUYhUuaIAl5huKiidEaitjm5AQS42xSi7UsF4rbuOUxDYXP00YHdyuX0B';  
   // Property Types
   static const List<String> propertyTypes = [
     'House',

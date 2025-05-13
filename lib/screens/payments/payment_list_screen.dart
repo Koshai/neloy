@@ -14,6 +14,10 @@ import '../../providers/tenant_provider.dart';
 import 'package:intl/intl.dart';
 import 'add_payment_screen.dart';
 import 'package:property_management_app/main.dart';
+// Add this import for the PDF service
+import '../../services/pdf_service.dart';
+// Add this import for Supabase
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -114,6 +118,45 @@ class _PaymentListScreenState extends State<PaymentListScreen> with WidgetsBindi
       if (mounted) {
         setState(() => _isInitialLoading = false);
       }
+    }
+  }
+
+  // Add this method to generate a receipt for a payment
+  Future<void> _generatePaymentReceipt(PaymentListItem item) async {
+    try {
+      setState(() => _isInitialLoading = true);
+      
+      final pdfService = PdfService();
+      
+      // Get current user name (landlord) from Supabase
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      final landlordName = currentUser?.email?.split('@').first ?? 'Property Manager';
+      
+      // Generate receipt PDF
+      final pdfFile = await pdfService.generatePaymentReceiptPdf(
+        payment: item.payment,
+        property: item.property,
+        tenant: item.tenant,
+        lease: item.lease,
+        landlordName: landlordName,
+      );
+      
+      // Share the PDF
+      await pdfService.sharePdf(pdfFile);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Payment receipt generated successfully')),
+      );
+    } catch (e) {
+      print('Error generating payment receipt: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error generating payment receipt: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isInitialLoading = false);
     }
   }
 
@@ -412,6 +455,20 @@ class _PaymentListScreenState extends State<PaymentListScreen> with WidgetsBindi
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text('Close'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _generatePaymentReceipt(item);
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.receipt_long, size: 16),
+                              SizedBox(width: 4),
+                              Text('Generate Receipt'),
+                            ],
+                          ),
                         ),
                         TextButton(
                           onPressed: () {

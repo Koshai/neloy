@@ -285,7 +285,7 @@ class SubscriptionScreen extends StatelessWidget {
             
             SizedBox(height: 24),
             
-            // Subscribe button
+            // Subscribe button - REPLACE THE EXISTING BUTTON WITH THIS ONE
             Center(
               child: ElevatedButton(
                 onPressed: () => provider.subscribe(context, 'premium_monthly'),

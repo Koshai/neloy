@@ -132,6 +132,16 @@ class _DashboardHomeScreenState extends State<DashboardHomeScreen> {
         title: Text('Property Management Dashboard'),
         actions: [
           IconButton(
+            icon: Icon(Icons.card_membership),
+            tooltip: 'Subscription',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => SubscriptionScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: Icon(Icons.sync),
             tooltip: 'Sync All Data',
             onPressed: () async {

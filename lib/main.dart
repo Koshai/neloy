@@ -16,9 +16,14 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'utils/constants.dart';
 import 'providers/document_provider.dart';
 import 'services/lease_service.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Stripe
+  Stripe.publishableKey = AppConstants.stripePublishableKey;
+  await Stripe.instance.applySettings();
   
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
@@ -82,6 +87,20 @@ class MyApp extends StatelessWidget {
           ),
         ),
         navigatorObservers: [RouteObserver<ModalRoute<void>>()],
+        
+        // Add this section to handle deep linking
+        onGenerateRoute: (settings) {
+          // Handle deep links here
+          if (settings.name?.startsWith('/billing-return') ?? false) {
+            // Refresh subscription data
+            context.read<SubscriptionProvider>().loadSubscriptionStatus();
+            return MaterialPageRoute(
+              builder: (_) => DashboardScreen(),
+            );
+          }
+          return null;
+        },
+        
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {
             if (auth.isLoggedIn) {
