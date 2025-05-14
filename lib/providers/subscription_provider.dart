@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'dart:async';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/constants.dart';
@@ -13,6 +14,9 @@ class SubscriptionProvider extends ChangeNotifier {
   String _plan = 'free'; // 'free', 'basic', 'premium'
   DateTime? _subscriptionExpiryDate;
   bool _showAnnualPlans = false;
+
+  String? _currentPlanType; // 'premium_monthly' or 'premium_yearly'
+  String? get currentPlanType => _currentPlanType;
   
   // Add Stripe-related properties
   String? _stripeCustomerId;
@@ -69,6 +73,8 @@ class SubscriptionProvider extends ChangeNotifier {
   bool get canAddTenant => isPremium || _tenantCount < _freeTenantLimit;
   bool get canAddDocument => isPremium || _documentCount < _freeDocumentLimit;
 
+  bool _needToRefreshOnResume = false;
+
   SubscriptionProvider() {
     loadSubscriptionStatus();
   }
@@ -100,6 +106,7 @@ class SubscriptionProvider extends ChangeNotifier {
         _subscriptionStatus = response['subscription_status'];
         _cancelAtPeriodEnd = response['cancel_at_period_end'] ?? false;
         _lastPaymentError = response['last_payment_error'];
+        _currentPlanType = response['subscription_plan']; // Get the plan type
         
         if (response['current_period_start'] != null) {
           _currentPeriodStart = DateTime.parse(response['current_period_start']);
@@ -124,7 +131,9 @@ class SubscriptionProvider extends ChangeNotifier {
               _subscriptionExpiryDate!.isAfter(DateTime.now());
           
           if (isActive) {
-            _plan = response['subscription_plan'] ?? 'free';
+            _plan = response['subscription_plan']?.startsWith('premium') ?? false 
+                ? 'premium' 
+                : 'free';
           } else {
             _plan = 'free';
           }
@@ -370,7 +379,6 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // Update the billing portal method to use Stripe
   Future<void> openBillingPortal(BuildContext context) async {
     try {
       _isLoading = true;
@@ -438,7 +446,24 @@ class SubscriptionProvider extends ChangeNotifier {
       print('Can launch URL: $canLaunchResult');
       
       if (canLaunchResult) {
+        // Set flag to refresh when app becomes active again
+        _needToRefreshOnResume = true;
+        
         await launch(url);
+        
+        // Start a timer to refresh data periodically
+        // This helps when the app is resumed but didn't properly detect it
+        Timer.periodic(Duration(seconds: 5), (timer) {
+          if (_needToRefreshOnResume) {
+            print('Attempting to refresh subscription data');
+            loadSubscriptionStatus().then((_) {
+              timer.cancel();
+              _needToRefreshOnResume = false;
+            });
+          } else {
+            timer.cancel();
+          }
+        });
       } else {
         throw 'Could not launch Stripe portal URL';
       }

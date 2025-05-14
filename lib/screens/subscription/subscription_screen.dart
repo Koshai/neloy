@@ -3,12 +3,73 @@ import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
 import 'package:intl/intl.dart';
 
-class SubscriptionScreen extends StatelessWidget {
+class SubscriptionScreen extends StatefulWidget {
+  @override
+  _SubscriptionScreenState createState() => _SubscriptionScreenState();
+}
+
+class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBindingObserver {
+  bool _needManualRefresh = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Register observer to detect when app returns to foreground
+    WidgetsBinding.instance.addObserver(this);
+    
+    // Refresh data when screen first opens
+    _refreshData();
+  }
+  
+  @override
+  void dispose() {
+    // Unregister observer
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app returns to foreground, refresh data
+    if (state == AppLifecycleState.resumed) {
+      print('App resumed - refreshing subscription data');
+      _refreshData();
+      
+      // Set flag to refresh again after a delay
+      // This helps with cases where the first refresh happens too quickly
+      if (_needManualRefresh) {
+        Future.delayed(Duration(seconds: 2), () {
+          if (mounted) {
+            print('Performing delayed refresh after resume');
+            _refreshData();
+            _needManualRefresh = false;
+          }
+        });
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // App is paused (likely user went to Stripe portal)
+      _needManualRefresh = true;
+    }
+  }
+  
+  Future<void> _refreshData() async {
+    // Refresh subscription data
+    await Provider.of<SubscriptionProvider>(context, listen: false).loadSubscriptionStatus();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Subscription'),
+        actions: [
+          // Add refresh button
+          IconButton(
+            icon: Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh subscription data',
+          ),
+        ],
       ),
       body: Consumer<SubscriptionProvider>(
         builder: (context, provider, _) {
@@ -16,23 +77,77 @@ class SubscriptionScreen extends StatelessWidget {
             return Center(child: CircularProgressIndicator());
           }
 
-          return ListView(
-            padding: EdgeInsets.all(24),
-            children: [
-              // Current plan info
-              _buildCurrentPlanCard(context, provider),
-              SizedBox(height: 24),
-              
-              // Usage stats
-              _buildUsageStats(context, provider),
-              SizedBox(height: 24),
-              
-              // Premium plan option if on free plan
-              if (provider.plan == 'free')
-                _buildPremiumPlan(context, provider),
-            ],
+          return RefreshIndicator(
+            onRefresh: _refreshData,
+            child: ListView(
+              padding: EdgeInsets.all(24),
+              children: [
+                // Current plan info
+                _buildCurrentPlanCard(context, provider),
+                SizedBox(height: 24),
+                
+                // Usage stats
+                _buildUsageStats(context, provider),
+                SizedBox(height: 24),
+                
+                // Premium plan option if on free plan
+                if (provider.plan == 'free')
+                  _buildSubscriptionToggle(context, provider),
+                  
+                // Premium plan option if on free plan
+                if (provider.plan == 'free')
+                  _buildPremiumPlan(context, provider),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+  
+  Widget _buildSubscriptionToggle(BuildContext context, SubscriptionProvider provider) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Billing Period',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Row(
+              children: [
+                Text(
+                  'Monthly',
+                  style: TextStyle(
+                    fontWeight: provider.showAnnualPlans ? FontWeight.normal : FontWeight.bold,
+                    color: provider.showAnnualPlans ? Colors.grey : Colors.blue[800],
+                  ),
+                ),
+                Switch(
+                  value: provider.showAnnualPlans,
+                  onChanged: (_) => provider.togglePlanType(),
+                  activeColor: Colors.green,
+                ),
+                Text(
+                  'Annual',
+                  style: TextStyle(
+                    fontWeight: provider.showAnnualPlans ? FontWeight.bold : FontWeight.normal,
+                    color: provider.showAnnualPlans ? Colors.green : Colors.grey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -40,6 +155,11 @@ class SubscriptionScreen extends StatelessWidget {
   Widget _buildCurrentPlanCard(BuildContext context, SubscriptionProvider provider) {
     final isPremium = provider.isPremium;
     final planName = provider.plan == 'premium' ? 'Premium Plan' : 'Free Plan';
+    
+    // Determine billing interval (monthly or yearly)
+    final String planInterval = isPremium && provider.currentPlanType?.contains('yearly') == true 
+        ? ' (Annual)' 
+        : (isPremium ? ' (Monthly)' : '');
     
     return Card(
       elevation: 4,
@@ -74,7 +194,7 @@ class SubscriptionScreen extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        planName,
+                        planName + planInterval,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -93,16 +213,41 @@ class SubscriptionScreen extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Renewal Date:'),
+                  Text('Next Billing Date:'),
                   Text(
-                    DateFormat('MMMM d, yyyy').format(provider.subscriptionExpiryDate!),
+                    provider.subscriptionExpiryDate != null 
+                        ? DateFormat('MMMM d, yyyy').format(provider.subscriptionExpiryDate!) 
+                        : 'Not available',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
+              if (provider.lastPaymentDate != null) ...[
+                SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Last Payment:'),
+                    Text(
+                      DateFormat('MMMM d, yyyy').format(provider.lastPaymentDate!),
+                      style: TextStyle(fontWeight: FontWeight.normal),
+                    ),
+                  ],
+                ),
+              ],
               SizedBox(height: 16),
               OutlinedButton(
-                onPressed: () => provider.openBillingPortal(context),
+                onPressed: () async {
+                  await provider.openBillingPortal(context);
+                  
+                  // After returning from the portal, refresh data after a delay
+                  // This helps when the deep link doesn't trigger properly
+                  Future.delayed(Duration(seconds: 1), () {
+                    if (mounted) {
+                      _refreshData();
+                    }
+                  });
+                },
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
@@ -217,6 +362,13 @@ class SubscriptionScreen extends StatelessWidget {
   }
 
   Widget _buildPremiumPlan(BuildContext context, SubscriptionProvider provider) {
+    // Get pricing based on plan type
+    final isAnnual = provider.showAnnualPlans;
+    final planPrice = isAnnual ? '\$50' : '\$5';
+    final billingPeriod = isAnnual ? 'per year' : 'per month';
+    final planId = isAnnual ? 'premium_yearly' : 'premium_monthly';
+    final savingsText = isAnnual ? 'Save 17% compared to monthly plan' : '';
+    
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -259,7 +411,7 @@ class SubscriptionScreen extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '\$5',
+                  planPrice,
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
@@ -268,11 +420,22 @@ class SubscriptionScreen extends StatelessWidget {
                 ),
                 SizedBox(width: 4),
                 Text(
-                  'per month',
+                  billingPeriod,
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ],
             ),
+            if (isAnnual && savingsText.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text(
+                  savingsText,
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             SizedBox(height: 24),
             
             // Features
@@ -285,10 +448,19 @@ class SubscriptionScreen extends StatelessWidget {
             
             SizedBox(height: 24),
             
-            // Subscribe button - REPLACE THE EXISTING BUTTON WITH THIS ONE
+            // Subscribe button
             Center(
               child: ElevatedButton(
-                onPressed: () => provider.subscribe(context, 'premium_monthly'),
+                onPressed: () async {
+                  await provider.subscribe(context, planId);
+                  
+                  // After subscription attempt, refresh data
+                  if (mounted) {
+                    Future.delayed(Duration(seconds: 1), () {
+                      _refreshData();
+                    });
+                  }
+                },
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(horizontal: 48, vertical: 16),
                   backgroundColor: Colors.blue,

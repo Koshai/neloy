@@ -93,7 +93,7 @@ class MyApp extends StatelessWidget {
           // Handle deep links here
           if (settings.name?.startsWith('/billing-return') ?? false) {
             // Refresh subscription data
-            context.read<SubscriptionProvider>().loadSubscriptionStatus();
+            Provider.of<SubscriptionProvider>(context, listen: false).loadSubscriptionStatus();
             return MaterialPageRoute(
               builder: (_) => DashboardScreen(),
             );
