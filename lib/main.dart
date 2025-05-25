@@ -20,10 +20,6 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize Stripe
-  Stripe.publishableKey = AppConstants.stripePublishableKey;
-  await Stripe.instance.applySettings();
   
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io' show Platform;
 import 'package:provider/provider.dart';
 import '../../providers/subscription_provider.dart';
 import 'package:intl/intl.dart';
@@ -47,7 +48,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
         });
       }
     } else if (state == AppLifecycleState.paused) {
-      // App is paused (likely user went to Stripe portal)
+      // App is paused (likely user went to payment screen)
       _needManualRefresh = true;
     }
   }
@@ -235,6 +236,29 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                   ],
                 ),
               ],
+              if (provider.cancelAtPeriodEnd) ...[
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.orange, size: 16),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Your subscription will cancel at the end of the current period.',
+                          style: TextStyle(color: Colors.orange[800]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               SizedBox(height: 16),
               OutlinedButton(
                 onPressed: () async {
@@ -364,10 +388,30 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
   Widget _buildPremiumPlan(BuildContext context, SubscriptionProvider provider) {
     // Get pricing based on plan type
     final isAnnual = provider.showAnnualPlans;
-    final planPrice = isAnnual ? '\$50' : '\$5';
+    final planPrice = isAnnual ? provider.getPriceText('premium_yearly') : provider.getPriceText('premium_monthly');
     final billingPeriod = isAnnual ? 'per year' : 'per month';
     final planId = isAnnual ? 'premium_yearly' : 'premium_monthly';
     final savingsText = isAnnual ? 'Save 17% compared to monthly plan' : '';
+    
+    // Determine payment method logo
+    Widget paymentLogo = SizedBox.shrink();
+    if (Platform.isIOS) {
+      paymentLogo = Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Image.asset(
+          'assets/images/apple_pay.png',
+          height: 24,
+        ),
+      );
+    } else if (Platform.isAndroid) {
+      paymentLogo = Padding(
+        padding: const EdgeInsets.only(right: 8.0),
+        child: Image.asset(
+          'assets/images/google_pay.png',
+          height: 24,
+        ),
+      );
+    }
     
     return Card(
       elevation: 4,
@@ -451,7 +495,9 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
             // Subscribe button
             Center(
               child: ElevatedButton(
-                onPressed: () async {
+                onPressed: provider.isLoading 
+                    ? null 
+                    : () async {
                   await provider.subscribe(context, planId);
                   
                   // After subscription attempt, refresh data
@@ -462,15 +508,28 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> with WidgetsBin
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 48, vertical: 16),
-                  backgroundColor: Colors.blue,
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  backgroundColor: Platform.isIOS ? Colors.black : Colors.blue,
                 ),
-                child: Text(
-                  'Upgrade to Premium',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(
+                      Platform.isIOS 
+                          ? 'assets/images/apple_pay.png'
+                          : 'assets/images/google_pay.png',
+                      height: 24,
+                    ),
+                    SizedBox(width: 8),
+                    Text(
+                      'Subscribe ${planPrice}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

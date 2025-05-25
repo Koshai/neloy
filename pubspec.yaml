@@ -1,5 +1,5 @@
 name: property_management_app
-description: "A new Flutter project."
+description: "A property management application for real estate owners"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -51,6 +51,11 @@ dependencies:
   flutter_tesseract_ocr: ^0.4.23
   camera: ^0.10.5
   permission_handler: ^12.0.0+1
+  in_app_purchase: ^3.1.7
+  encrypt: ^5.0.1
+  flutter_secure_storage: ^8.0.0
+  in_app_purchase_storekit: ^0.3.6+7  # For Apple-specific functionality
+  in_app_purchase_android: ^0.3.0+13  # For Google-specific functionality
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -88,6 +93,17 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  assets:
+    - assets/images/
+    - assets/tessdata/
+    - assets/fonts/
+
+  # Asset directories with specific files
+  # This is important for OCR data and images
+    - assets/images/apple_pay.png
+    - assets/images/google_pay.png
+    - assets/tessdata/eng.traineddata
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

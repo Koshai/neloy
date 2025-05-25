@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'dart:async';
-import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show Platform;
 import '../utils/constants.dart';
+import '../services/in_app_purchase_service.dart';
 
 class SubscriptionProvider extends ChangeNotifier {
   final _supabase = Supabase.instance.client;
@@ -18,9 +20,8 @@ class SubscriptionProvider extends ChangeNotifier {
   String? _currentPlanType; // 'premium_monthly' or 'premium_yearly'
   String? get currentPlanType => _currentPlanType;
   
-  // Add Stripe-related properties
-  String? _stripeCustomerId;
-  String? _stripeSubscriptionId;
+  // Subscription-related properties
+  String? _subscriptionId;
   String? _subscriptionStatus;
   DateTime? _currentPeriodStart;
   DateTime? _currentPeriodEnd;
@@ -46,9 +47,8 @@ class SubscriptionProvider extends ChangeNotifier {
   bool get showAnnualPlans => _showAnnualPlans;
   DateTime? get subscriptionExpiryDate => _subscriptionExpiryDate;
   
-  // Add getters for Stripe properties
-  String? get stripeCustomerId => _stripeCustomerId;
-  String? get stripeSubscriptionId => _stripeSubscriptionId;
+  // Updated getters for subscription info
+  String? get subscriptionId => _subscriptionId;
   String? get subscriptionStatus => _subscriptionStatus;
   bool get cancelAtPeriodEnd => _cancelAtPeriodEnd;
   String? get lastPaymentError => _lastPaymentError;
@@ -76,10 +76,12 @@ class SubscriptionProvider extends ChangeNotifier {
   bool _needToRefreshOnResume = false;
 
   SubscriptionProvider() {
+    // Initialize in-app purchases
+    InAppPurchaseService.initialize();
     loadSubscriptionStatus();
   }
 
-  // Update this method to load Stripe subscription data too
+  // Update this method to load subscription data
   Future<void> loadSubscriptionStatus() async {
     _isLoading = true;
     notifyListeners();
@@ -100,9 +102,8 @@ class SubscriptionProvider extends ChangeNotifier {
           .maybeSingle();
 
       if (response != null) {
-        // Load Stripe properties
-        _stripeCustomerId = response['stripe_customer_id'];
-        _stripeSubscriptionId = response['stripe_subscription_id'];
+        // Load subscription properties
+        _subscriptionId = response['subscription_id'];
         _subscriptionStatus = response['subscription_status'];
         _cancelAtPeriodEnd = response['cancel_at_period_end'] ?? false;
         _lastPaymentError = response['last_payment_error'];
@@ -189,7 +190,7 @@ class SubscriptionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Update the subscribe method to use Stripe
+  // New method for subscription
   Future<void> subscribe(BuildContext context, String planId) async {
     try {
       _isLoading = true;
@@ -211,7 +212,7 @@ class SubscriptionProvider extends ChangeNotifier {
         if (response != null && response['is_active'] == true) {
           // User already has an active subscription
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('You already have an active subscription. Please manage it in the billing portal.')),
+            SnackBar(content: Text('You already have an active subscription. Please manage it in the account settings.')),
           );
           return; // Exit the method
         }
@@ -220,156 +221,88 @@ class SubscriptionProvider extends ChangeNotifier {
         // Continue with subscription creation anyway
       }
       
-      // Optional: Get auth token if using JWT verification
-      String? authHeader;
-      try {
-        final token = await _getAuthToken();
-        if (token != null) {
-          authHeader = 'Bearer $token';
-        }
-      } catch (e) {
-        print('Warning: Could not get auth token: $e');
-        // Continue without token if JWT is not enforced
-      }
-
-      print('Creating customer with userId: ${user.id}, email: ${user.email}');
+      // Get the price for the selected plan
+      final double price = _getPriceForPlan(planId);
       
-      // 1. Get or create a Stripe customer for this user
-      final headers = {
-        'Content-Type': 'application/json',
-      };
+      // Process the purchase
+      bool paymentSuccessful = false;
       
-      // Only add Authorization header if we have a token
-      if (authHeader != null) {
-        headers['Authorization'] = authHeader;
+      if (kDebugMode) {
+        // Use mock dialog in debug mode
+        paymentSuccessful = await InAppPurchaseService.showMockPurchaseDialog(
+          context, planId, price);
+      } else {
+        // Use real payment in release mode
+        paymentSuccessful = await InAppPurchaseService.makePurchase(
+          context, planId);
       }
       
-      final customerResponse = await http.post(
-        Uri.parse('${AppConstants.backendUrl}/get-or-create-customer'),
-        headers: headers,
-        body: json.encode({
-          'userId': user.id,
-          'email': user.email,
-        }),
-      );
-      
-      if (customerResponse.statusCode != 200) {
-        final responseBody = customerResponse.body;
-        final errorMessage = responseBody.isNotEmpty 
-            ? json.decode(responseBody)['error'] ?? 'Failed to create customer'
-            : 'Failed to create customer';
-        throw errorMessage;
-      }
-      
-      final responseData = json.decode(customerResponse.body);
-      final customerId = responseData['customerId'];
-      
-      if (customerId == null) {
-        throw 'Failed to get customer ID from server';
-      }
-
-      print('Customer response status: ${customerResponse.statusCode}');
-      print('Customer response body: ${customerResponse.body}');
-      
-      // 2. Map planId to Stripe priceId
-      final priceId = _getPriceIdForPlan(planId);
-      
-      // 3. Create a Stripe subscription
-      print('Creating subscription with customerId: $customerId, priceId: $priceId');
-      
-      // Use the same headers as the customer request
-      final subscriptionResponse = await http.post(
-        Uri.parse('${AppConstants.backendUrl}/stripe-create-subscription'),
-        headers: headers,
-        body: json.encode({
-          'customerId': customerId,
-          'priceId': priceId,
-          'userId': user.id,
-        }),
-      );
-      
-      if (subscriptionResponse.statusCode != 200) {
-        final responseBody = subscriptionResponse.body;
-        final errorMessage = responseBody.isNotEmpty 
-            ? json.decode(responseBody)['error'] ?? 'Failed to create subscription'
-            : 'Failed to create subscription';
-        throw errorMessage;
-      }
-      
-      final subResponseData = json.decode(subscriptionResponse.body);
-      final clientSecret = subResponseData['clientSecret'];
-      final subscriptionId = subResponseData['subscriptionId'];
-      
-      if (clientSecret == null) {
-        throw 'Failed to get client secret from server';
-      }
-
-      print('Subscription response status: ${subscriptionResponse.statusCode}');
-      print('Subscription response body: ${subscriptionResponse.body}');
-      print('Client secret received: ${clientSecret.substring(0, 10)}...'); // Never log the full secret
-      
-      // 4. IMPORTANT CHANGE: Use Payment Sheet instead of direct confirmation
-      print('Initializing payment sheet...');
-      try {
-        // Initialize the payment sheet
-        await Stripe.instance.initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: clientSecret,
-            merchantDisplayName: 'Property Management App',
-            customerId: customerId,
-            style: ThemeMode.system,
-          ),
-        );
-        print('Payment sheet initialized successfully');
-        
-        // Present the payment sheet to collect payment details
-        print('Presenting payment sheet...');
-        await Stripe.instance.presentPaymentSheet();
-        print('Payment sheet presented and completed successfully');
-        
-        // If we get here, the payment was successful (exceptions are thrown otherwise)
+      if (paymentSuccessful) {
+        // Payment successful, update local state
         _plan = 'premium';
-        _subscriptionExpiryDate = DateTime.now().add(Duration(days: 30));
-        _stripeSubscriptionId = subscriptionId;
-        _stripeCustomerId = customerId;
+        _subscriptionExpiryDate = DateTime.now().add(planId.contains('yearly') 
+            ? Duration(days: 365) 
+            : Duration(days: 30));
+        _subscriptionId = 'purchase_${DateTime.now().millisecondsSinceEpoch}';
+        _currentPlanType = planId;
 
-        // FALLBACK: Manual update to database
-        try {
-          print('Manually updating subscription status in database');
-          await _supabase.from('user_subscriptions').upsert({
-            'user_id': user.id,
-            'stripe_customer_id': customerId,
-            'stripe_subscription_id': subscriptionId,
-            'subscription_plan': 'premium',
-            'is_active': true,
-            'subscription_status': 'active',
-            'subscription_end_date': DateTime.now().add(Duration(days: 30)).toIso8601String(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
-          print('Manual update successful');
-        } catch (dbError) {
-          print('Error manually updating database: $dbError');
-        }
-        
+        // First check if the user has a record
+final existingRecord = await _supabase
+    .from('user_subscriptions')
+    .select()
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+        if (existingRecord != null) {
+          // Update existing record
+          await _supabase
+              .from('user_subscriptions')
+              .update({
+                'subscription_id': _subscriptionId,
+                'subscription_plan': planId,
+                'is_active': true,
+                'subscription_status': 'active',
+                'subscription_end_date': _subscriptionExpiryDate!.toIso8601String(),
+                'current_period_start': DateTime.now().toIso8601String(),
+                'current_period_end': _subscriptionExpiryDate!.toIso8601String(),
+                'last_payment_date': DateTime.now().toIso8601String(),
+                'last_payment_amount': price,
+                'updated_at': DateTime.now().toIso8601String(),
+                'cancel_at_period_end': false, // Reset cancellation if they're resubscribing
+              })
+              .eq('user_id', user.id);
+        } else {
+          // Insert new record
+          await _supabase
+              .from('user_subscriptions')
+              .insert({
+                'user_id': user.id,
+                'subscription_id': _subscriptionId,
+                'subscription_plan': planId,
+                'is_active': true,
+                'subscription_status': 'active',
+                'subscription_end_date': _subscriptionExpiryDate!.toIso8601String(),
+                'current_period_start': DateTime.now().toIso8601String(),
+                'current_period_end': _subscriptionExpiryDate!.toIso8601String(),
+                'last_payment_date': DateTime.now().toIso8601String(),
+                'last_payment_amount': price,
+                'updated_at': DateTime.now().toIso8601String(),
+              });
+        };
+
         // Refresh subscription data
         await loadSubscriptionStatus();
         
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Subscription activated successfully!')),
         );
-      } catch (e) {
-        print('Stripe error: $e');
-        
-        // Check if user canceled the payment
-        if (e is StripeException && e.error.code == FailureCode.Canceled) {
-          print('Payment canceled by user');
-        } else {
-          // Rethrow to be caught by outer catch block
-          rethrow;
-        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Subscription purchase was not completed.')),
+        );
       }
     } catch (e) {
-      print('Subscription error: $e'); // Add detailed logging
+      print('Subscription error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Subscription error: ${e.toString()}')),
       );
@@ -387,90 +320,84 @@ class SubscriptionProvider extends ChangeNotifier {
       final user = _supabase.auth.currentUser;
       if (user == null) throw 'User not logged in';
 
-      // If we already have a customer ID, use it; otherwise retrieve it
-      String? customerId = _stripeCustomerId;
-      
-      if (customerId == null) {
-        // Get the customer ID from the Edge Function
-        final customerResponse = await http.post(
-          Uri.parse('${AppConstants.backendUrl}/get-or-create-customer'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'userId': user.id,
-            'email': user.email,
-          }),
-        );
-        
-        if (customerResponse.statusCode != 200) {
-          final responseBody = customerResponse.body;
-          throw json.decode(responseBody)['error'] ?? 'Failed to get customer ID';
-        }
-        
-        customerId = json.decode(customerResponse.body)['customerId'];
-        
-        if (customerId == null) {
-          throw 'Failed to get customer ID from server';
-        }
-      }
-
-      // Print customer ID for debugging
-      print('Using customer ID: $customerId');
-      
-      // Create a billing portal session - simplified request
-      final portalResponse = await http.post(
-        Uri.parse('${AppConstants.backendUrl}/create-billing-portal'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'customerId': customerId,
-          // Don't send returnUrl - let the Edge Function handle it
-        }),
+      // For mobile platforms, show a dialog with subscription management options
+      final action = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Manage Subscription'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Your subscription is active until:'),
+              SizedBox(height: 8),
+              Text(
+                DateFormat('MMMM d, yyyy').format(_subscriptionExpiryDate ?? DateTime.now()),
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 16),
+              Text('What would you like to do?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'close'),
+              child: Text('Close'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, 'cancel'),
+              child: Text('Cancel Subscription'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ],
+        ),
       );
       
-      print('Portal response status: ${portalResponse.statusCode}');
-      print('Portal response body: ${portalResponse.body}');
-      
-      if (portalResponse.statusCode != 200) {
-        throw json.decode(portalResponse.body)['error'] ?? 'Failed to create portal session';
-      }
-      
-      final url = json.decode(portalResponse.body)['url'];
-      
-      if (url == null) {
-        throw 'No portal URL returned from server';
-      }
-      
-      print('Launching URL: $url');
-      
-      // Open the URL in a browser
-      final canLaunchResult = await canLaunch(url);
-      print('Can launch URL: $canLaunchResult');
-      
-      if (canLaunchResult) {
-        // Set flag to refresh when app becomes active again
-        _needToRefreshOnResume = true;
+      if (action == 'cancel') {
+        // Handle subscription cancellation
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Confirm Cancellation'),
+            content: Text(
+              'Are you sure you want to cancel your subscription? '
+              'You will still have access until ${DateFormat('MMMM d, yyyy').format(_subscriptionExpiryDate ?? DateTime.now())}.'
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('No, Keep Subscription'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text('Yes, Cancel'),
+              ),
+            ],
+          ),
+        );
         
-        await launch(url);
-        
-        // Start a timer to refresh data periodically
-        // This helps when the app is resumed but didn't properly detect it
-        Timer.periodic(Duration(seconds: 5), (timer) {
-          if (_needToRefreshOnResume) {
-            print('Attempting to refresh subscription data');
-            loadSubscriptionStatus().then((_) {
-              timer.cancel();
-              _needToRefreshOnResume = false;
-            });
-          } else {
-            timer.cancel();
-          }
-        });
-      } else {
-        throw 'Could not launch Stripe portal URL';
+        if (confirm == true) {
+          await _supabase.from('user_subscriptions').update({
+            'cancel_at_period_end': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          }).eq('user_id', user.id);
+          
+          _cancelAtPeriodEnd = true;
+          notifyListeners();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Your subscription will cancel at the end of the current period.')),
+          );
+        }
       }
+      
+      // Set flag to refresh when app becomes active again
+      _needToRefreshOnResume = true;
+      
     } catch (e) {
-      print('Error opening billing portal: $e');
+      print('Error managing subscription: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error opening billing portal: ${e.toString()}')),
+        SnackBar(content: Text('Error managing subscription: ${e.toString()}')),
       );
     } finally {
       _isLoading = false;
@@ -478,27 +405,21 @@ class SubscriptionProvider extends ChangeNotifier {
     }
   }
 
-  // Add this method to your class
-  Future<String?> _getAuthToken() async {
-    try {
-      final session = await _supabase.auth.currentSession;
-      return session?.accessToken;
-    } catch (e) {
-      print('Error getting auth token: $e');
-      return null;
-    }
-  }
-  
-  // Helper method to map app plan IDs to Stripe price IDs
-  String _getPriceIdForPlan(String planId) {
+  // Helper method to map app plan IDs to prices
+  double _getPriceForPlan(String planId) {
     switch (planId) {
       case 'premium_monthly':
-        return 'price_1RNSCoFHQ9IY1M5xrhjkyOKj'; // Replace with your actual Stripe price ID
+        return 4.99;
       case 'premium_yearly':
-        return 'price_1RNSCoFHQ9IY1M5x48ymUHbC'; // Replace with your actual Stripe price ID
+        return 49.99;
       default:
         throw 'Invalid plan ID';
     }
+  }
+  
+  // Helper method to get pricing text
+  String getPriceText(String planId) {
+    return '\$${_getPriceForPlan(planId).toStringAsFixed(2)}';
   }
   
   // Keep your existing methods for refreshing data
@@ -514,7 +435,4 @@ class SubscriptionProvider extends ChangeNotifier {
       print('Error refreshing data: $e');
     }
   }
-  
-  // The _simulateSubscription method from the original code can be removed
-  // as we're now using real Stripe integration
 }

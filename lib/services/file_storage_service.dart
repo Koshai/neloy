@@ -1,53 +1,71 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'secure_file_service.dart';
 
 class FileStorageService {
   final _supabase = Supabase.instance.client;
 
+  // Upload an encrypted file
   Future<String> uploadFile({
     required File file,
     required String bucket,
     required String folder,
   }) async {
-    final fileName = file.path.split('/').last;
-    final filePath = '${folder}/${DateTime.now().millisecondsSinceEpoch}_${fileName}';
-    
-    final bytes = await file.readAsBytes();
-    final fileExt = fileName.split('.').last;
-    
-    await _supabase.storage
-        .from(bucket)
-        .uploadBinary(
-          filePath,
-          bytes,
-          fileOptions: FileOptions(
-            contentType: _getContentType(fileExt),
-          ),
-        );
+    try {
+      final fileName = file.path.split('/').last;
+      final filePath = '${folder}/${DateTime.now().millisecondsSinceEpoch}_${fileName}.enc';
+      
+      // Encrypt the file before uploading
+      final encryptedBytes = await SecureFileService.encryptFile(file);
+      
+      // Upload the encrypted file
+      await _supabase.storage
+          .from(bucket)
+          .uploadBinary(
+            filePath,
+            encryptedBytes,
+            fileOptions: FileOptions(
+              contentType: 'application/octet-stream', // Generic binary type for encrypted files
+            ),
+          );
 
-    return filePath;
+      return filePath;
+    } catch (e) {
+      print('Error uploading encrypted file: $e');
+      throw e;
+    }
   }
 
+  // Download and decrypt a file
   Future<File?> downloadFile({
     required String bucket,
     required String path,
   }) async {
     try {
-      final bytes = await _supabase.storage
+      // Get original filename without the .enc extension
+      final fileName = path.split('/').last.replaceAll('.enc', '');
+      
+      // Download encrypted bytes
+      final encryptedBytes = await _supabase.storage
           .from(bucket)
           .download(path);
-
-      final tempDir = await getTemporaryDirectory();
-      final file = File('${tempDir.path}/${path.split('/').last}');
-      await file.writeAsBytes(bytes);
-      return file;
+      
+      // Generate a temporary path for the decrypted file
+      final outputPath = await SecureFileService.generateTempFilePath(fileName);
+      
+      // Decrypt the file
+      return await SecureFileService.decryptFile(
+        encryptedBytes,
+        outputPath,
+      );
     } catch (e) {
-      print('Error downloading file: $e');
+      print('Error downloading encrypted file: $e');
       return null;
     }
   }
 
+  // Keep your existing _getContentType method
   String _getContentType(String extension) {
     switch (extension.toLowerCase()) {
       case 'pdf':

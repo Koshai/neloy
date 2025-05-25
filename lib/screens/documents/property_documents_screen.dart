@@ -21,6 +21,8 @@ class PropertyDocumentsScreen extends StatefulWidget {
 }
 
 class _PropertyDocumentsScreenState extends State<PropertyDocumentsScreen> {
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -199,29 +201,33 @@ class _PropertyDocumentsScreenState extends State<PropertyDocumentsScreen> {
 
   Future<void> _viewDocument(Document document) async {
     try {
+      // Show loading indicator
+      setState(() => _isLoading = true);
+      
       final file = await FileStorageService().downloadFile(
         bucket: 'property-documents',
         path: document.filePath,
       );
       
       if (file != null) {
-        // Option 1: Using open_file package
+        // Hide loading indicator
+        setState(() => _isLoading = false);
+        
+        // Use open_file package to open the decrypted file
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error: ${result.message}')),
           );
         }
-        
-        // OR Option 2: Using url_launcher
-        // final uri = Uri.file(file.path);
-        // if (!await launchUrl(uri)) {
-        //   ScaffoldMessenger.of(context).showSnackBar(
-        //     SnackBar(content: Text('Could not open this file')),
-        //   );
-        // }
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not decrypt the document')),
+        );
       }
     } catch (e) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error opening document: $e')),
       );

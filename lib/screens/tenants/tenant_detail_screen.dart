@@ -422,14 +422,22 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
      );
      
      if (file != null) {
-       // Use the device's default app to open the file
-       final result = await OpenFile.open(file.path);
-       if (result.type != ResultType.done) {
-         ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('Error: ${result.message}')),
-         );
-       }
-     }
+        // Hide loading indicator
+        setState(() => _isLoading = false);
+        
+        // Use open_file package to open the decrypted file
+        final result = await OpenFile.open(file.path);
+        if (result.type != ResultType.done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: ${result.message}')),
+          );
+        }
+      } else {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not decrypt the document')),
+        );
+      }
    } catch (e) {
      ScaffoldMessenger.of(context).showSnackBar(
        SnackBar(content: Text('Error opening document: $e')),
