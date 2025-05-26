@@ -1,9 +1,8 @@
+// lib/services/ml_kit_ocr_service.dart
 import 'dart:io';
-import 'package:flutter_tesseract_ocr/flutter_tesseract_ocr.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter/services.dart';
-import 'package:path/path.dart' as path;
+import 'package:intl/intl.dart';
 
 class ReceiptData {
   final double? amount;
@@ -19,14 +18,11 @@ class ReceiptData {
     this.expenseType,
     required this.rawText,
   });
-
-  @override
-  String toString() {
-    return 'ReceiptData(amount: $amount, date: $date, description: $description, expenseType: $expenseType)';
-  }
 }
 
-class ReceiptScannerService {
+class MlKitOcrService {
+  final _textRecognizer = TextRecognizer();
+
   // Capture image using camera or gallery
   Future<File?> captureImage(ImageSource source) async {
     final ImagePicker picker = ImagePicker();
@@ -45,21 +41,24 @@ class ReceiptScannerService {
   // Process image and extract text
   Future<ReceiptData?> processReceiptImage(File imageFile) async {
     try {
-      // Extract text from image using Tesseract OCR with simplified parameters
-      String extractedText = await FlutterTesseractOcr.extractText(
-        imageFile.path,
-      );
+      final inputImage = InputImage.fromFile(imageFile);
+      final recognizedText = await _textRecognizer.processImage(inputImage);
       
-      if (extractedText.isEmpty) {
+      if (recognizedText.text.isEmpty) {
         return null;
       }
       
       // Parse the recognized text
-      return _parseReceiptText(extractedText);
+      return _parseReceiptText(recognizedText.text);
     } catch (e) {
       print('Error processing receipt: $e');
       return null;
     }
+  }
+
+  // Close resources
+  void dispose() {
+    _textRecognizer.close();
   }
 
   // Parse receipt text to extract relevant information

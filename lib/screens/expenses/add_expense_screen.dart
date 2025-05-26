@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:property_management_app/services/ml_kit_ocr_service.dart';
 import 'package:property_management_app/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/expense.dart';
@@ -8,7 +9,7 @@ import '../../utils/constants.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import '../../services/receipt_scanner_service.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 
 class AddExpenseScreen extends StatefulWidget {
@@ -31,7 +32,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isLoading = false;
   bool _isScanning = false;
   
-  final ReceiptScannerService _scannerService = ReceiptScannerService();
+  final MlKitOcrService _scannerService = MlKitOcrService();
   File? _receiptImage;
   String? _rawOcrText;
 
