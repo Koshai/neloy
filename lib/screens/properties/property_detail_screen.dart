@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/models/expense.dart';
-import 'package:property_management_app/models/payment.dart';
-import 'package:property_management_app/providers/property_provider.dart';
-import 'package:property_management_app/screens/tenants/add_tenant_with_lease_screen.dart';
-import 'package:property_management_app/services/database_service.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/models/expense.dart';
+import 'package:ghor/models/payment.dart';
+import 'package:ghor/providers/property_provider.dart';
+import 'package:ghor/screens/tenants/add_tenant_with_lease_screen.dart';
+import 'package:ghor/services/database_service.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/property.dart';
 import '../../providers/tenant_provider.dart';

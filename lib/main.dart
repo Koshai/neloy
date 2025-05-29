@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/lease_provider.dart';
-import 'package:property_management_app/providers/subscription_provider.dart';
-import 'package:property_management_app/screens/onboarding/onboarding_screen.dart';
-import 'package:property_management_app/screens/welcome/welcome_screen.dart';
+import 'package:ghor/providers/lease_provider.dart';
+import 'package:ghor/providers/subscription_provider.dart';
+import 'package:ghor/screens/onboarding/onboarding_screen.dart';
+import 'package:ghor/screens/welcome/welcome_screen.dart';
+import 'package:ghor/services/deep_link_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,7 +17,6 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'utils/constants.dart';
 import 'providers/document_provider.dart';
 import 'services/lease_service.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,10 +55,21 @@ Future<void> _checkExpiredLeases() async {
   await leaseService.archiveExpiredLeases();
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final Widget initialScreen;
 
   const MyApp({required this.initialScreen});
+  
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void dispose() {
+    DeepLinkService.dispose();
+    super.dispose();
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -84,21 +95,13 @@ class MyApp extends StatelessWidget {
         ),
         navigatorObservers: [RouteObserver<ModalRoute<void>>()],
         
-        // Add this section to handle deep linking
-        onGenerateRoute: (settings) {
-          // Handle deep links here
-          if (settings.name?.startsWith('/billing-return') ?? false) {
-            // Refresh subscription data
-            Provider.of<SubscriptionProvider>(context, listen: false).loadSubscriptionStatus();
-            return MaterialPageRoute(
-              builder: (_) => DashboardScreen(),
-            );
-          }
-          return null;
-        },
-        
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {
+            // Initialize deep link service when the app starts
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              DeepLinkService.initialize(context);
+            });
+            
             if (auth.isLoggedIn) {
               return DashboardScreen();
             } else {

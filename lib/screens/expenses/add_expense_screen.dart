@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/services/ml_kit_ocr_service.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/services/ml_kit_ocr_service.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/expense.dart';
 import '../../providers/expense_provider.dart';

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/property.dart';
 import '../../providers/property_provider.dart';

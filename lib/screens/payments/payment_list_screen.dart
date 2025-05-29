@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/models/lease.dart';
-import 'package:property_management_app/models/payment.dart';
-import 'package:property_management_app/models/property.dart';
-import 'package:property_management_app/models/tenant.dart';
-import 'package:property_management_app/screens/properties/property_detail_screen.dart';
-import 'package:property_management_app/screens/tenants/tenant_detail_screen.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/models/lease.dart';
+import 'package:ghor/models/payment.dart';
+import 'package:ghor/models/property.dart';
+import 'package:ghor/models/tenant.dart';
+import 'package:ghor/screens/properties/property_detail_screen.dart';
+import 'package:ghor/screens/tenants/tenant_detail_screen.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../providers/payment_provider.dart';
 import '../../providers/lease_provider.dart';
@@ -13,7 +13,7 @@ import '../../providers/property_provider.dart';
 import '../../providers/tenant_provider.dart';
 import 'package:intl/intl.dart';
 import 'add_payment_screen.dart';
-import 'package:property_management_app/main.dart';
+import 'package:ghor/main.dart';
 // Add this import for the PDF service
 import '../../services/pdf_service.dart';
 // Add this import for Supabase

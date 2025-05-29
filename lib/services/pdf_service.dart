@@ -5,9 +5,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
-import 'package:property_management_app/models/lease.dart';
-import 'package:property_management_app/models/payment.dart';
-import 'package:property_management_app/models/tenant.dart';
+import 'package:ghor/models/lease.dart';
+import 'package:ghor/models/payment.dart';
+import 'package:ghor/models/tenant.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/property.dart';
 

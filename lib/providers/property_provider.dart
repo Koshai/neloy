@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/subscription_provider.dart';
+import 'package:ghor/providers/subscription_provider.dart';
 import '../models/property.dart';
 import '../services/database_service.dart';
 import 'package:provider/provider.dart';

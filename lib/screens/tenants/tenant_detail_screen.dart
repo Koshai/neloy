@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/subscription_provider.dart';
-import 'package:property_management_app/screens/tenants/add_edit_tenant_screen.dart';
-import 'package:property_management_app/services/database_service.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
-import 'package:property_management_app/widgets/limit_warning_dialog.dart';
+import 'package:ghor/providers/subscription_provider.dart';
+import 'package:ghor/screens/tenants/add_edit_tenant_screen.dart';
+import 'package:ghor/services/database_service.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
+import 'package:ghor/widgets/limit_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../models/tenant.dart';
 import '../../models/lease.dart';

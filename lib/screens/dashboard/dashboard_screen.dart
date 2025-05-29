@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/lease_provider.dart';
-import 'package:property_management_app/providers/subscription_provider.dart';
-import 'package:property_management_app/screens/calendar/calendar_screen.dart';
-import 'package:property_management_app/screens/subscription/subscription_screen.dart';
-import 'package:property_management_app/services/lease_service.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/providers/lease_provider.dart';
+import 'package:ghor/providers/subscription_provider.dart';
+import 'package:ghor/screens/calendar/calendar_screen.dart';
+import 'package:ghor/screens/subscription/subscription_screen.dart';
+import 'package:ghor/services/lease_service.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/property_provider.dart';

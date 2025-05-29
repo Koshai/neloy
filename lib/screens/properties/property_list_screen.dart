@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/subscription_provider.dart';
-import 'package:property_management_app/widgets/limit_warning_dialog.dart';
+import 'package:ghor/providers/subscription_provider.dart';
+import 'package:ghor/widgets/limit_warning_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../providers/property_provider.dart';
 import 'add_edit_property_screen.dart';

@@ -1,4 +1,4 @@
-name: property_management_app
+name: ghor
 description: "A property management application for real estate owners"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -56,6 +56,7 @@ dependencies:
   flutter_secure_storage: ^8.0.0
   in_app_purchase_storekit: ^0.3.6+7  # For Apple-specific functionality
   in_app_purchase_android: ^0.3.0+13  # For Google-specific functionality
+  app_links: ^3.4.3     # Add this instead
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

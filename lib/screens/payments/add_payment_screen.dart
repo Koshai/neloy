@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:property_management_app/providers/lease_provider.dart';
-import 'package:property_management_app/providers/property_provider.dart';
-import 'package:property_management_app/utils/data_sync_manager.dart';
+import 'package:ghor/providers/lease_provider.dart';
+import 'package:ghor/providers/property_provider.dart';
+import 'package:ghor/utils/data_sync_manager.dart';
 import 'package:provider/provider.dart';
 import '../../models/payment.dart';
 import '../../providers/payment_provider.dart';
