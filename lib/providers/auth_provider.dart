@@ -27,6 +27,8 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> signIn(String email, String password) async {
     try {
+      print('🔐 Attempting sign in for: $email');
+      
       final response = await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
@@ -35,91 +37,193 @@ class AuthProvider extends ChangeNotifier {
       if (response.user != null) {
         // Check if email is confirmed
         if (response.user!.emailConfirmedAt == null) {
-          throw 'Please verify your email address before signing in. Check your inbox for a verification link.';
+          print('❌ Email not verified for: $email');
+          throw 'Please verify your email address before signing in. Check your inbox for a verification code.';
         }
         
+        print('✅ Sign in successful for: $email');
         _isLoggedIn = true;
         notifyListeners();
       }
     } catch (e) {
+      print('❌ Sign in error: $e');
       throw e;
     }
   }
 
   Future<void> signUp(String email, String password) async {
     try {
+      print('🚀 Attempting signup for: $email');
+      
+      // Create the account first with traditional signup
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: 'ghor://email-verified', // Updated to use app deep link
       );
       
-      if (response.user != null && response.user!.emailConfirmedAt == null) {
-        // User created but needs email verification
-        throw 'Please check your email and click the verification link to complete your registration.';
-      }
+      print('✅ Signup completed');
+      print('   User: ${response.user?.email}');
+      print('   Confirmed: ${response.user?.emailConfirmedAt != null}');
       
-      // If email is already confirmed (shouldn't happen on first signup)
-      if (response.user != null && response.user!.emailConfirmedAt != null) {
-        _isLoggedIn = true;
-        notifyListeners();
+      if (response.user != null) {
+        if (response.user!.emailConfirmedAt == null) {
+          print('📧 Sending verification code');
+          
+          // Send OTP for verification - try multiple methods
+          try {
+            // Method 1: Use resend to send OTP
+            await _supabase.auth.resend(
+              type: OtpType.signup,
+              email: email,
+            );
+            print('✅ Verification code sent via resend');
+          } catch (resendError) {
+            print('⚠️ Resend failed, trying signInWithOtp: $resendError');
+            
+            // Method 2: Use signInWithOtp as backup (this will send OTP)
+            await _supabase.auth.signInWithOtp(email: email);
+            print('✅ Verification code sent via signInWithOtp');
+          }
+        } else {
+          print('✅ User confirmed immediately');
+          _isLoggedIn = true;
+          notifyListeners();
+        }
+      } else {
+        throw 'Failed to create account. Please try again.';
       }
     } catch (e) {
+      print('❌ Signup error: $e');
       throw e;
     }
   }
 
   Future<void> resendVerificationEmail(String email) async {
     try {
-      await _supabase.auth.resend(
-        type: OtpType.signup,
-        email: email,
-        emailRedirectTo: 'ghor://email-verified', // Updated to use app deep link
-      );
+      print('📧 Resending verification code to: $email');
+      
+      // Try multiple methods to ensure OTP is sent
+      try {
+        // Method 1: Use resend for existing signup
+        await _supabase.auth.resend(
+          type: OtpType.signup,
+          email: email,
+        );
+        print('✅ Verification code sent via resend');
+      } catch (resendError) {
+        print('⚠️ Resend failed, trying signInWithOtp: $resendError');
+        
+        // Method 2: Use signInWithOtp as backup
+        await _supabase.auth.signInWithOtp(email: email);
+        print('✅ Verification code sent via signInWithOtp');
+      }
     } catch (e) {
-      throw 'Failed to resend verification email: ${e.toString()}';
+      print('❌ Failed to send verification code: $e');
+      throw 'Failed to send verification code: ${e.toString()}';
     }
   }
 
-  // Reset password - send email with reset link
   Future<void> resetPassword(String email) async {
     try {
-      await _supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: 'ghor://reset-password', // Updated to use app deep link
-      );
+      print('🔐 Sending password reset code to: $email');
+      
+      await _supabase.auth.resetPasswordForEmail(email);
+      
+      print('✅ Password reset code sent successfully');
     } catch (e) {
-      throw 'Failed to send password reset email: ${e.toString()}';
+      print('❌ Failed to send password reset code: $e');
+      throw 'Failed to send password reset code: ${e.toString()}';
     }
   }
 
-  // Update password with tokens from reset link
-  Future<void> updatePassword(String newPassword, String? accessToken, String? refreshToken) async {
+  Future<void> verifyEmailWithOtp(String email, String otp) async {
     try {
-      if (accessToken != null && refreshToken != null) {
-        // Alternative approach: recover session using the tokens
+      print('🔐 Verifying email with code');
+      print('   Email: $email');
+      print('   Code: $otp');
+      
+      // Try different OTP types to handle various scenarios
+      AuthResponse? response;
+      
+      try {
+        // Method 1: Try as email verification (most common)
+        response = await _supabase.auth.verifyOTP(
+          type: OtpType.email,
+          email: email,
+          token: otp,
+        );
+        print('✅ Verified with email type');
+      } catch (e1) {
+        print('⚠️ Email type failed: $e1');
+        
         try {
-          await _supabase.auth.recoverSession(accessToken);
-        } catch (e) {
-          // If recoverSession doesn't work, try direct token approach
-          print('Recover session failed, trying alternative approach: $e');
+          // Method 2: Try as signup verification
+          response = await _supabase.auth.verifyOTP(
+            type: OtpType.signup,
+            email: email,
+            token: otp,
+          );
+          print('✅ Verified with signup type');
+        } catch (e2) {
+          print('⚠️ Signup type failed: $e2');
+          
+          try {
+            // Method 3: Try as magic link
+            response = await _supabase.auth.verifyOTP(
+              type: OtpType.magiclink,
+              email: email,
+              token: otp,
+            );
+            print('✅ Verified with magiclink type');
+          } catch (e3) {
+            print('❌ All verification methods failed');
+            throw 'Invalid verification code. Please check your code and try again.';
+          }
         }
       }
       
-      // Update the password
-      final response = await _supabase.auth.updateUser(
-        UserAttributes(password: newPassword),
+      if (response?.user != null && response?.session != null) {
+        print('✅ Email verified and logged in successfully');
+        _isLoggedIn = true;
+        notifyListeners();
+      } else {
+        throw 'Verification failed. Please check your code and try again.';
+      }
+    } catch (e) {
+      print('❌ OTP verification error: $e');
+      throw 'Invalid verification code. Please try again.';
+    }
+  }
+
+  Future<void> verifyOtpAndUpdatePassword(String email, String otp, String newPassword) async {
+    try {
+      print('🔐 Resetting password with code');
+      
+      final response = await _supabase.auth.verifyOTP(
+        type: OtpType.recovery,
+        email: email,
+        token: otp,
       );
       
-      if (response.user == null) {
-        throw 'Failed to update password';
+      if (response.user != null && response.session != null) {
+        print('✅ Code verified, updating password');
+        
+        final updateResponse = await _supabase.auth.updateUser(
+          UserAttributes(password: newPassword),
+        );
+        
+        if (updateResponse.user != null) {
+          print('✅ Password updated successfully');
+          await _supabase.auth.signOut();
+        } else {
+          throw 'Failed to update password';
+        }
+      } else {
+        throw 'Invalid reset code. Please check your code and try again.';
       }
-      
-      // Sign out after password update for security
-      await _supabase.auth.signOut();
-      
     } catch (e) {
-      throw 'Failed to update password: ${e.toString()}';
+      print('❌ Password reset error: $e');
+      throw 'Failed to reset password: ${e.toString()}';
     }
   }
 
@@ -129,13 +233,11 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Check if user's email is verified
   bool get isEmailVerified {
     final user = _supabase.auth.currentUser;
     return user?.emailConfirmedAt != null;
   }
 
-  // Get current user email
   String? get currentUserEmail {
     return _supabase.auth.currentUser?.email;
   }

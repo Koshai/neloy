@@ -1,9 +1,9 @@
+// lib/main.dart - Remove deep link complexity
 import 'package:flutter/material.dart';
 import 'package:ghor/providers/lease_provider.dart';
 import 'package:ghor/providers/subscription_provider.dart';
 import 'package:ghor/screens/onboarding/onboarding_screen.dart';
 import 'package:ghor/screens/welcome/welcome_screen.dart';
-import 'package:ghor/services/deep_link_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -55,21 +55,10 @@ Future<void> _checkExpiredLeases() async {
   await leaseService.archiveExpiredLeases();
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   final Widget initialScreen;
 
   const MyApp({required this.initialScreen});
-  
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  @override
-  void dispose() {
-    DeepLinkService.dispose();
-    super.dispose();
-  }
   
   @override
   Widget build(BuildContext context) {
@@ -93,14 +82,10 @@ class _MyAppState extends State<MyApp> {
             backgroundColor: Colors.blue,
           ),
         ),
-        navigatorObservers: [RouteObserver<ModalRoute<void>>()],
-        
+        // REMOVED: Deep link route observer and navigation observers
         home: Consumer<AuthProvider>(
           builder: (context, auth, _) {
-            // Initialize deep link service when the app starts
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              DeepLinkService.initialize(context);
-            });
+            // REMOVED: Deep link service initialization
             
             if (auth.isLoggedIn) {
               return DashboardScreen();

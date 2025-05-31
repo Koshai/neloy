@@ -11,8 +11,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _otpFormKey = GlobalKey<FormState>();
+  
   bool _isLoading = false;
+  bool _showOtpVerification = false;
   bool _showVerificationMessage = false;
   String _userEmail = '';
 
@@ -20,13 +24,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showVerificationMessage ? 'Verify Your Email' : 'Create Account'),
+        title: Text(_getAppBarTitle()),
       ),
       body: Padding(
         padding: EdgeInsets.all(16.0),
-        child: _showVerificationMessage ? _buildVerificationScreen() : _buildRegistrationForm(),
+        child: _buildCurrentScreen(),
       ),
     );
+  }
+
+  String _getAppBarTitle() {
+    if (_showOtpVerification) return 'Verify Email';
+    if (_showVerificationMessage) return 'Check Your Email';
+    return 'Create Account';
+  }
+
+  Widget _buildCurrentScreen() {
+    if (_showOtpVerification) {
+      return _buildOtpVerificationScreen();
+    } else if (_showVerificationMessage) {
+      return _buildVerificationMessageScreen();
+    } else {
+      return _buildRegistrationForm();
+    }
   }
 
   Widget _buildRegistrationForm() {
@@ -151,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildVerificationScreen() {
+  Widget _buildVerificationMessageScreen() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -214,7 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 24),
               Text(
-                'Please check your email and click the verification link to activate your account.',
+                'Click the link in the email to verify your account, then return to log in.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.green[700],
@@ -225,53 +245,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         SizedBox(height: 32),
-        
-        // Instructions card
-        Card(
-          elevation: 2,
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue[800]),
-                    SizedBox(width: 8),
-                    Text(
-                      'Next Steps:',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[800],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12),
-                _buildInstructionStep(
-                  '1.',
-                  'Check your email inbox',
-                  'Look for an email from PropertyPro',
-                  Icons.inbox,
-                ),
-                _buildInstructionStep(
-                  '2.',
-                  'Click the verification link',
-                  'This will activate your account',
-                  Icons.link,
-                ),
-                _buildInstructionStep(
-                  '3.',
-                  'Return to the app',
-                  'Log in with your credentials',
-                  Icons.login,
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(height: 24),
         
         // Action buttons
         Row(
@@ -290,10 +263,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: () {
-                  Navigator.pop(context);
+                  setState(() {
+                    _showOtpVerification = true;
+                    _showVerificationMessage = false;
+                  });
                 },
-                icon: Icon(Icons.arrow_back),
-                label: Text('Back to Login'),
+                icon: Icon(Icons.pin),
+                label: Text('Enter Code'),
                 style: ElevatedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -301,7 +277,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ],
         ),
+        
         SizedBox(height: 16),
+        
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: Text('Back to Login'),
+          style: ElevatedButton.styleFrom(
+            minimumSize: Size(double.infinity, 48),
+          ),
+        ),
+        
+        SizedBox(height: 24),
         
         // Troubleshooting
         ExpansionTile(
@@ -325,6 +314,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   Text('• Try resending the verification email'),
                   SizedBox(height: 4),
                   Text('• Wait a few minutes for the email to arrive'),
+                  SizedBox(height: 4),
+                  Text('• Use the "Enter Code" option if you received a code'),
                 ],
               ),
             ),
@@ -334,52 +325,101 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildInstructionStep(String step, String title, String description, IconData icon) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildOtpVerificationScreen() {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.blue[100],
-              shape: BoxShape.circle,
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Center(
-              child: Text(
-                step,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
+            child: Column(
+              children: [
+                Icon(
+                  Icons.verified_user,
+                  size: 48,
                   color: Colors.blue[800],
                 ),
-              ),
-            ),
-          ),
-          SizedBox(width: 12),
-          Icon(icon, color: Colors.blue[600], size: 20),
-          SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+                SizedBox(height: 16),
                 Text(
-                  title,
+                  'Enter Verification Code',
                   style: TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    color: Colors.blue[800],
                   ),
                 ),
+                SizedBox(height: 8),
                 Text(
-                  description,
+                  'Please enter the 6-digit code sent to your email',
                   style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 12,
+                    fontSize: 16,
+                    color: Colors.blue[600],
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
+          ),
+          SizedBox(height: 32),
+          
+          TextFormField(
+            controller: _otpController,
+            decoration: InputDecoration(
+              labelText: 'Verification Code',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.pin),
+              hintText: '123456',
+            ),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              letterSpacing: 2,
+            ),
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'Please enter the verification code';
+              }
+              if (value!.length != 6) {
+                return 'Code must be 6 digits';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 24),
+          
+          ElevatedButton(
+            onPressed: _isLoading ? null : _verifyOtp,
+            child: _isLoading
+                ? CircularProgressIndicator()
+                : Text('Verify Email'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size(double.infinity, 50),
+              backgroundColor: Colors.blue,
+            ),
+          ),
+          SizedBox(height: 16),
+          
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _showOtpVerification = false;
+                _showVerificationMessage = true;
+              });
+            },
+            child: Text('Back to email instructions'),
+          ),
+          
+          SizedBox(height: 8),
+          
+          TextButton(
+            onPressed: _resendVerificationEmail,
+            child: Text('Resend verification email'),
           ),
         ],
       ),
@@ -395,7 +435,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _passwordController.text,
         );
         
-        // If we reach here, registration was successful but email needs verification
+        // Registration successful - show verification message
         setState(() {
           _userEmail = _emailController.text;
           _showVerificationMessage = true;
@@ -404,28 +444,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
       } catch (e) {
         setState(() => _isLoading = false);
         
-        // Check if the error is about email confirmation
-        if (e.toString().toLowerCase().contains('email') && 
-            e.toString().toLowerCase().contains('confirm')) {
-          setState(() {
-            _userEmail = _emailController.text;
-            _showVerificationMessage = true;
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString()),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    if (_otpFormKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
+      try {
+        await context.read<AuthProvider>().verifyEmailWithOtp(
+          _userEmail,
+          _otpController.text,
+        );
+        
+        // Verification successful - navigate to dashboard
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } catch (e) {
+        setState(() => _isLoading = false);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   Future<void> _resendVerificationEmail() async {
     try {
-      // Call Supabase to resend verification email
       await context.read<AuthProvider>().resendVerificationEmail(_userEmail);
       
       ScaffoldMessenger.of(context).showSnackBar(

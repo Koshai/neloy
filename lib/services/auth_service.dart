@@ -8,7 +8,7 @@ class AuthService {
       final response = await _supabase.auth.signUp(
         email: email,
         password: password,
-        emailRedirectTo: 'https://yourapp.com/email-verified',
+        // Remove emailRedirectTo to use Supabase default flow
       );
       return response.user;
     } catch (e) {
@@ -37,7 +37,7 @@ class AuthService {
       await _supabase.auth.resend(
         type: OtpType.signup,
         email: email,
-        emailRedirectTo: 'https://yourapp.com/email-verified',
+        // Remove emailRedirectTo to use Supabase default flow
       );
     } catch (e) {
       throw e.toString();
@@ -48,7 +48,7 @@ class AuthService {
     try {
       await _supabase.auth.resetPasswordForEmail(
         email,
-        redirectTo: 'https://yourapp.com/reset-password',
+        // Remove redirectTo to use Supabase default flow
       );
     } catch (e) {
       throw e.toString();

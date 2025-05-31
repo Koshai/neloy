@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:ghor/screens/auth/forgot_password_screen.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -12,27 +12,45 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _otpController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _otpFormKey = GlobalKey<FormState>();
+  
   bool _isLoading = false;
-  bool _showEmailVerificationReminder = false;
+  bool _showEmailVerificationScreen = false;
+  bool _showOtpVerification = false;
   String _userEmail = '';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Property Management Login'),
+        title: Text(_getAppBarTitle()),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.blue[800],
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(16.0),
-        child: _showEmailVerificationReminder 
-            ? _buildEmailVerificationReminder()
-            : _buildLoginForm(),
+        child: _buildCurrentScreen(),
       ),
     );
+  }
+
+  String _getAppBarTitle() {
+    if (_showOtpVerification) return 'Verify Email';
+    if (_showEmailVerificationScreen) return 'Email Verification';
+    return 'Property Management Login';
+  }
+
+  Widget _buildCurrentScreen() {
+    if (_showOtpVerification) {
+      return _buildOtpVerificationScreen();
+    } else if (_showEmailVerificationScreen) {
+      return _buildEmailVerificationScreen();
+    } else {
+      return _buildLoginForm();
+    }
   }
 
   Widget _buildLoginForm() {
@@ -161,7 +179,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           SizedBox(height: 16),
           
-          // Forgot password (you can implement this later)
           TextButton(
             onPressed: () {
               Navigator.push(
@@ -228,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildEmailVerificationReminder() {
+  Widget _buildEmailVerificationScreen() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -267,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 16),
               Text(
-                'Please check your email and click the verification link before signing in.',
+                'Please verify your email address before signing in.',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.orange[700],
@@ -297,69 +314,290 @@ class _LoginScreenState extends State<LoginScreen> {
         
         SizedBox(height: 32),
         
-        // Action buttons
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _resendVerificationEmail,
-                icon: Icon(Icons.refresh),
-                label: Text('Resend Email'),
-                style: OutlinedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(color: Colors.orange[600]!),
-                  foregroundColor: Colors.orange[700],
-                ),
+        // Step-by-step instructions
+        Container(
+          padding: EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue[200]!),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[800]),
+                  SizedBox(width: 8),
+                  Text(
+                    'Two Options to Verify:',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                ],
               ),
+              SizedBox(height: 12),
+              _buildStep('A', 'Click the link in your email'),
+              _buildStep('B', 'Or enter the 6-digit code below'),
+            ],
+          ),
+        ),
+        
+        SizedBox(height: 32),
+        
+        // Action buttons
+        Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _resendVerificationEmail,
+                    icon: Icon(Icons.refresh),
+                    label: Text('Resend Email'),
+                    style: OutlinedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      side: BorderSide(color: Colors.orange[600]!),
+                      foregroundColor: Colors.orange[700],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showOtpVerification = true;
+                        _showEmailVerificationScreen = false;
+                      });
+                    },
+                    icon: Icon(Icons.pin),
+                    label: Text('Enter Code'),
+                    style: ElevatedButton.styleFrom(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: Colors.blue[600],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: ElevatedButton.icon(
+            
+            SizedBox(height: 16),
+            
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
                 onPressed: () {
                   setState(() {
-                    _showEmailVerificationReminder = false;
+                    _showEmailVerificationScreen = false;
                   });
                 },
-                icon: Icon(Icons.arrow_back),
-                label: Text('Back to Login'),
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  backgroundColor: Colors.orange[600],
-                ),
+                child: Text('Back to Login'),
               ),
             ),
           ],
         ),
         
-        SizedBox(height: 24),
+        SizedBox(height: 20),
         
-        // Help text
-        Container(
-          padding: EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
+        // Troubleshooting
+        ExpansionTile(
+          title: Text(
+            'Not receiving emails?',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Still having trouble?',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('• Check your spam/junk folder'),
+                  SizedBox(height: 4),
+                  Text('• Make sure you entered the correct email'),
+                  SizedBox(height: 4),
+                  Text('• Try clicking "Resend Email"'),
+                  SizedBox(height: 4),
+                  Text('• Wait a few minutes for delivery'),
+                  SizedBox(height: 4),
+                  Text('• Use the "Enter Code" option if you have a 6-digit code'),
+                ],
               ),
-              SizedBox(height: 8),
-              Text('• Check your spam/junk folder'),
-              Text('• Make sure you entered the correct email'),
-              Text('• Wait a few minutes for the email to arrive'),
-              Text('• Contact support if the issue persists'),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  Widget _buildOtpVerificationScreen() {
+    return Form(
+      key: _otpFormKey,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(height: 60),
+          
+          Container(
+            padding: EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.verified_user,
+                  size: 48,
+                  color: Colors.blue[800],
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Enter Verification Code',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[800],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Enter the 6-digit code from your email',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.blue[600],
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[300]!),
+                  ),
+                  child: Text(
+                    _userEmail,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 32),
+          
+          TextFormField(
+            controller: _otpController,
+            decoration: InputDecoration(
+              labelText: 'Verification Code',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              prefixIcon: Icon(Icons.pin),
+              hintText: '123456',
+            ),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              letterSpacing: 2,
+            ),
+            validator: (value) {
+              if (value?.isEmpty ?? true) {
+                return 'Please enter the verification code';
+              }
+              if (value!.length != 6) {
+                return 'Code must be 6 digits';
+              }
+              return null;
+            },
+          ),
+          SizedBox(height: 24),
+          
+          ElevatedButton(
+            onPressed: _isLoading ? null : _verifyEmailWithOtp,
+            child: _isLoading
+                ? CircularProgressIndicator()
+                : Text('Verify & Sign In'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size(double.infinity, 50),
+              backgroundColor: Colors.blue,
+            ),
+          ),
+          SizedBox(height: 16),
+          
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showOtpVerification = false;
+                      _showEmailVerificationScreen = true;
+                    });
+                  },
+                  child: Text('Back to Instructions'),
+                ),
+              ),
+              Expanded(
+                child: TextButton(
+                  onPressed: _resendVerificationEmail,
+                  child: Text('Resend Code'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStep(String marker, String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.blue[600],
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                marker,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.blue[800],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -371,6 +609,9 @@ class _LoginScreenState extends State<LoginScreen> {
           _emailController.text,
           _passwordController.text,
         );
+        
+        // If we get here, login was successful
+        // The AuthProvider will handle navigation via state change
       } catch (e) {
         setState(() => _isLoading = false);
         
@@ -379,7 +620,7 @@ class _LoginScreenState extends State<LoginScreen> {
             e.toString().toLowerCase().contains('confirm')) {
           setState(() {
             _userEmail = _emailController.text;
-            _showEmailVerificationReminder = true;
+            _showEmailVerificationScreen = true;
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -394,10 +635,35 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         }
-      } finally {
-        if (mounted && !_showEmailVerificationReminder) {
-          setState(() => _isLoading = false);
-        }
+      }
+    }
+  }
+
+  Future<void> _verifyEmailWithOtp() async {
+    if (_otpFormKey.currentState?.validate() ?? false) {
+      setState(() => _isLoading = true);
+      try {
+        await context.read<AuthProvider>().verifyEmailWithOtp(
+          _userEmail,
+          _otpController.text,
+        );
+        
+        // Verification successful - user will be logged in automatically
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Email verified successfully! Welcome!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -408,7 +674,7 @@ class _LoginScreenState extends State<LoginScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification email sent successfully!'),
+          content: Text('Verification email sent! Check your inbox.'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.all(16),
