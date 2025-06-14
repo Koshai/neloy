@@ -65,7 +65,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         SizedBox(height: 8),
         Text(
-          'Enter your email address and we\'ll help you reset your password.',
+          'Enter your email address and we\'ll send you a 6-digit code to reset your password.',
           style: TextStyle(
             fontSize: 16,
             color: Colors.grey[600],
@@ -101,12 +101,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               SizedBox(height: 24),
 
-              // Send Reset Link Button
+              // Send Reset Code Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _sendResetEmail,
+                  onPressed: _isLoading ? null : _sendResetCode,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -127,11 +127,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                               ),
                             ),
                             SizedBox(width: 12),
-                            Text('Sending...'),
+                            Text('Sending Code...'),
                           ],
                         )
                       : Text(
-                          'Send Reset Instructions',
+                          'Send 6-Digit Code',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -193,7 +193,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               ),
               SizedBox(height: 12),
               Text(
-                'We\'ve sent password reset instructions to:',
+                'We\'ve sent a 6-digit password reset code to:',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey[600],
@@ -226,7 +226,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Follow the instructions in the email to reset your password. You can also use the code below if you received one.',
+                      'Enter the 6-digit code from your email to reset your password. The code is valid for 10 minutes.',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.blue[700],
@@ -250,13 +250,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   style: ElevatedButton.styleFrom(
                     padding: EdgeInsets.symmetric(vertical: 12),
                   ),
-                  child: Text('I have a reset code'),
+                  child: Text('I have the 6-digit code'),
                 ),
               ),
               
               SizedBox(height: 16),
               
-              // Resend Email Button
+              // Resend Code Button
               OutlinedButton(
                 onPressed: _isLoading ? null : () {
                   setState(() {
@@ -270,7 +270,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ),
                 ),
                 child: Text(
-                  'Send Again',
+                  'Send Code Again',
                   style: TextStyle(color: Colors.blue),
                 ),
               ),
@@ -298,7 +298,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Enter the reset code from your email and your new password.',
+            'Enter the 6-digit code from your email and your new password.',
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],
@@ -310,8 +310,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           TextFormField(
             controller: _otpController,
             decoration: InputDecoration(
-              labelText: 'Reset Code',
-              hintText: 'Enter 6-digit code from email',
+              labelText: '6-Digit Reset Code',
+              hintText: 'Enter code from email',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -325,7 +325,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
             validator: (value) {
               if (value?.isEmpty ?? true) {
-                return 'Please enter the reset code';
+                return 'Please enter the 6-digit reset code';
               }
               if (value!.length != 6) {
                 return 'Code must be 6 digits';
@@ -445,7 +445,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 
-  Future<void> _sendResetEmail() async {
+  Future<void> _sendResetCode() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -465,7 +465,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error sending reset email: ${e.toString()}'),
+          content: Text('Error sending reset code: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );

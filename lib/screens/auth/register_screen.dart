@@ -208,7 +208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 16),
               Text(
-                'We\'ve sent a verification email to:',
+                'We\'ve sent a 6-digit verification code to:',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.green[700],
@@ -234,7 +234,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               SizedBox(height: 24),
               Text(
-                'Click the link in the email to verify your account, then return to log in.',
+                'Enter the 6-digit code to verify your account and complete registration.',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.green[700],
@@ -251,9 +251,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: _resendVerificationEmail,
+                onPressed: _resendVerificationCode,
                 icon: Icon(Icons.refresh),
-                label: Text('Resend Email'),
+                label: Text('Resend Code'),
                 style: OutlinedButton.styleFrom(
                   padding: EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -311,11 +311,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   SizedBox(height: 4),
                   Text('• Make sure you entered the correct email address'),
                   SizedBox(height: 4),
-                  Text('• Try resending the verification email'),
+                  Text('• Try resending the verification code'),
                   SizedBox(height: 4),
                   Text('• Wait a few minutes for the email to arrive'),
                   SizedBox(height: 4),
-                  Text('• Use the "Enter Code" option if you received a code'),
+                  Text('• The code is valid for 10 minutes'),
                 ],
               ),
             ),
@@ -346,7 +346,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 SizedBox(height: 16),
                 Text(
-                  'Enter Verification Code',
+                  'Enter 6-Digit Code',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -355,12 +355,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Please enter the 6-digit code sent to your email',
+                  'Please enter the 6-digit verification code sent to your email',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.blue[600],
                   ),
                   textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[300]!),
+                  ),
+                  child: Text(
+                    _userEmail,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue[800],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -370,7 +387,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           TextFormField(
             controller: _otpController,
             decoration: InputDecoration(
-              labelText: 'Verification Code',
+              labelText: '6-Digit Verification Code',
               border: OutlineInputBorder(),
               prefixIcon: Icon(Icons.pin),
               hintText: '123456',
@@ -383,7 +400,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             validator: (value) {
               if (value?.isEmpty ?? true) {
-                return 'Please enter the verification code';
+                return 'Please enter the 6-digit verification code';
               }
               if (value!.length != 6) {
                 return 'Code must be 6 digits';
@@ -418,8 +435,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           SizedBox(height: 8),
           
           TextButton(
-            onPressed: _resendVerificationEmail,
-            child: Text('Resend verification email'),
+            onPressed: _resendVerificationCode,
+            child: Text('Resend verification code'),
           ),
         ],
       ),
@@ -478,20 +495,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _resendVerificationEmail() async {
+  Future<void> _resendVerificationCode() async {
     try {
-      await context.read<AuthProvider>().resendVerificationEmail(_userEmail);
+      await context.read<AuthProvider>().resendVerificationCode(_userEmail);
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification email sent successfully!'),
+          content: Text('6-digit verification code sent successfully!'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error sending email: ${e.toString()}'),
+          content: Text('Error sending code: ${e.toString()}'),
           backgroundColor: Colors.red,
         ),
       );

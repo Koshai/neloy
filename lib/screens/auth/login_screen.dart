@@ -284,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               SizedBox(height: 16),
               Text(
-                'Please verify your email address before signing in.',
+                'Please verify your email address with the 6-digit code before signing in.',
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.orange[700],
@@ -314,7 +314,7 @@ class _LoginScreenState extends State<LoginScreen> {
         
         SizedBox(height: 32),
         
-        // Step-by-step instructions
+        // Instructions
         Container(
           padding: EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -330,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Icon(Icons.info_outline, color: Colors.blue[800]),
                   SizedBox(width: 8),
                   Text(
-                    'Two Options to Verify:',
+                    'Check Your Email:',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -340,8 +340,29 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
               SizedBox(height: 12),
-              _buildStep('A', 'Click the link in your email'),
-              _buildStep('B', 'Or enter the 6-digit code below'),
+              Text(
+                '1. Check your email inbox for a 6-digit verification code',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.blue[800],
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '2. Enter the code using the button below',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.blue[800],
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                '3. Check your spam folder if you don\'t see the email',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.blue[800],
+                ),
+              ),
             ],
           ),
         ),
@@ -355,9 +376,9 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _resendVerificationEmail,
+                    onPressed: _resendVerificationCode,
                     icon: Icon(Icons.refresh),
-                    label: Text('Resend Email'),
+                    label: Text('Resend Code'),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       side: BorderSide(color: Colors.orange[600]!),
@@ -400,38 +421,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-        
-        SizedBox(height: 20),
-        
-        // Troubleshooting
-        ExpansionTile(
-          title: Text(
-            'Not receiving emails?',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[600],
-            ),
-          ),
-          children: [
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('• Check your spam/junk folder'),
-                  SizedBox(height: 4),
-                  Text('• Make sure you entered the correct email'),
-                  SizedBox(height: 4),
-                  Text('• Try clicking "Resend Email"'),
-                  SizedBox(height: 4),
-                  Text('• Wait a few minutes for delivery'),
-                  SizedBox(height: 4),
-                  Text('• Use the "Enter Code" option if you have a 6-digit code'),
-                ],
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -459,7 +448,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: 16),
                 Text(
-                  'Enter Verification Code',
+                  'Enter 6-Digit Code',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -468,7 +457,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'Enter the 6-digit code from your email',
+                  'Enter the 6-digit verification code from your email',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.blue[600],
@@ -500,7 +489,7 @@ class _LoginScreenState extends State<LoginScreen> {
           TextFormField(
             controller: _otpController,
             decoration: InputDecoration(
-              labelText: 'Verification Code',
+              labelText: '6-Digit Verification Code',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -515,7 +504,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             validator: (value) {
               if (value?.isEmpty ?? true) {
-                return 'Please enter the verification code';
+                return 'Please enter the 6-digit verification code';
               }
               if (value!.length != 6) {
                 return 'Code must be 6 digits';
@@ -552,49 +541,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               Expanded(
                 child: TextButton(
-                  onPressed: _resendVerificationEmail,
+                  onPressed: _resendVerificationCode,
                   child: Text('Resend Code'),
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStep(String marker, String text) {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            decoration: BoxDecoration(
-              color: Colors.blue[600],
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                marker,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.blue[800],
-              ),
-            ),
           ),
         ],
       ),
@@ -617,7 +568,8 @@ class _LoginScreenState extends State<LoginScreen> {
         
         // Check if the error is about email verification
         if (e.toString().toLowerCase().contains('verify') || 
-            e.toString().toLowerCase().contains('confirm')) {
+            e.toString().toLowerCase().contains('confirm') ||
+            e.toString().toLowerCase().contains('6-digit')) {
           setState(() {
             _userEmail = _emailController.text;
             _showEmailVerificationScreen = true;
@@ -668,13 +620,13 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _resendVerificationEmail() async {
+  Future<void> _resendVerificationCode() async {
     try {
-      await context.read<AuthProvider>().resendVerificationEmail(_userEmail);
+      await context.read<AuthProvider>().resendVerificationCode(_userEmail);
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Verification email sent! Check your inbox.'),
+          content: Text('6-digit verification code sent! Check your inbox.'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.all(16),
@@ -686,7 +638,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error sending email: ${e.toString()}'),
+          content: Text('Error sending code: ${e.toString()}'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           margin: EdgeInsets.all(16),

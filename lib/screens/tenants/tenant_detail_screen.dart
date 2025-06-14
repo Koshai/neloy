@@ -27,6 +27,7 @@ class TenantDetailScreen extends StatefulWidget {
 
 class _TenantDetailScreenState extends State<TenantDetailScreen> {
   bool _isLoading = true;
+  final _fileStorageService = FileStorageService();
 
   @override
   void initState() {
@@ -75,7 +76,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       builder: (context) => AlertDialog(
         title: Text('Delete Tenant'),
         content: Text(
-          'Are you sure you want to delete this tenant? This will also delete all associated leases, payments, and documents. This action cannot be undone.'
+          'Are you sure you want to delete this tenant? This will also delete all associated leases, payments, and documents stored on your device. This action cannot be undone.'
         ),
         actions: [
           TextButton(
@@ -86,6 +87,16 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
             onPressed: () async {
               try {
                 Navigator.pop(context); // Close dialog
+                
+                // Delete local files first
+                final documents = context.read<DocumentProvider>().documents;
+                for (final doc in documents) {
+                  await _fileStorageService.deleteFile(
+                    bucket: 'tenant-documents',
+                    path: doc.filePath,
+                  );
+                }
+                
                 await DatabaseService().deleteTenant(widget.tenant.id);
                 // Sync all data after deletion
                 await DataSyncService().syncAll(context);
@@ -174,7 +185,6 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                     ),
                   ),
                   
-                  // Rest of your code...
                   // Lease Information section
                   Card(
                     margin: EdgeInsets.all(16),
@@ -256,7 +266,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                     ),
                   ),
                   
-                  // Documents Section with your existing code
+                  // Documents Section
                   Card(
                     margin: EdgeInsets.all(16),
                     child: Padding(
@@ -268,7 +278,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Documents',
+                                'Documents (Local Storage)',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               ElevatedButton.icon(
@@ -277,6 +287,32 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                                 label: Text('Upload'),
                               ),
                             ],
+                          ),
+                          SizedBox(height: 8),
+                          
+                          // Local storage info
+                          Container(
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.security, color: Colors.green[600], size: 16),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Documents are encrypted and stored securely on your device',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           SizedBox(height: 16),
                           
@@ -289,7 +325,20 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
 
                               if (provider.documents.isEmpty) {
                                 return Center(
-                                  child: Text('No documents uploaded yet'),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.folder_outlined,
+                                        size: 48,
+                                        color: Colors.grey,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(
+                                        'No documents uploaded yet',
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
+                                    ],
+                                  ),
                                 );
                               }
 
@@ -304,10 +353,53 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                                       child: ListTile(
                                         leading: Icon(_getDocumentIcon(document.documentType)),
                                         title: Text(document.fileName),
-                                        subtitle: Text(document.documentType),
-                                        trailing: IconButton(
-                                          icon: Icon(Icons.remove_red_eye),
-                                          onPressed: () => _viewDocument(document),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('Type: ${document.documentType}'),
+                                            Text(
+                                              'Stored locally',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.green[600],
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        trailing: PopupMenuButton<String>(
+                                          onSelected: (value) {
+                                            switch (value) {
+                                              case 'view':
+                                                _viewDocument(document);
+                                                break;
+                                              case 'delete':
+                                                _confirmDeleteDocument(document);
+                                                break;
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            PopupMenuItem(
+                                              value: 'view',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.visibility),
+                                                  SizedBox(width: 8),
+                                                  Text('View'),
+                                                ],
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete, color: Colors.red),
+                                                  SizedBox(width: 8),
+                                                  Text('Delete', style: TextStyle(color: Colors.red)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                         onTap: () => _viewDocument(document),
                                       ),
@@ -328,103 +420,170 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   }
 
   Future<void> _uploadDocument() async {
-   // Check if user can add more documents
-   if (!context.read<SubscriptionProvider>().canAddDocument) {
-     showDialog(
-       context: context,
-       builder: (_) => LimitWarningDialog(limitType: 'document'),
-     );
-     return;
-   }
+    // Check if user can add more documents
+    if (!context.read<SubscriptionProvider>().canAddDocument) {
+      showDialog(
+        context: context,
+        builder: (_) => LimitWarningDialog(limitType: 'document'),
+      );
+      return;
+    }
 
-   final ImagePicker picker = ImagePicker();
-   
-   // Show dialog to choose between camera and gallery
-   showDialog(
-     context: context,
-     builder: (BuildContext context) {
-       return AlertDialog(
-         title: Text('Upload Document'),
-         content: Column(
-           mainAxisSize: MainAxisSize.min,
-           children: [
-             ListTile(
-               leading: Icon(Icons.photo_library),
-               title: Text('Choose from Gallery'),
-               onTap: () async {
-                 Navigator.pop(context);
-                 final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                 if (image != null) {
-                   _handleUpload(image);
-                 }
-               },
-             ),
-             ListTile(
-               leading: Icon(Icons.camera_alt),
-               title: Text('Take Photo'),
-               onTap: () async {
-                 Navigator.pop(context);
-                 final XFile? image = await picker.pickImage(source: ImageSource.camera);
-                 if (image != null) {
-                   _handleUpload(image);
-                 }
-               },
-             ),
-           ],
-         ),
-       );
-     },
-   );
- }
+    final ImagePicker picker = ImagePicker();
+    
+    // Show dialog to choose between camera and gallery
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Upload Document'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.security, color: Colors.green[600], size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Files are encrypted and stored locally on your device',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.green[700],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Choose from Gallery'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                  if (image != null) {
+                    _handleUpload(image);
+                  }
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.camera_alt),
+                title: Text('Take Photo'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final XFile? image = await picker.pickImage(source: ImageSource.camera);
+                  if (image != null) {
+                    _handleUpload(image);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
- Future<void> _handleUpload(XFile file) async {
-   try {
-     // Convert to File
-     final File imageFile = File(file.path);
-     
-     // Get the file extension for document type
-     final String fileExt = file.path.split('.').last.toLowerCase();
-     
-     // Upload to Supabase Storage
-     final path = await FileStorageService().uploadFile(
-       file: imageFile,
-       bucket: 'tenant-documents',
-       folder: widget.tenant.id,
-     );
-     
-     // Save document reference to database
-     await context.read<DocumentProvider>().addDocument(
-       tenantId: widget.tenant.id,
-       propertyId: null,
-       documentType: fileExt,
-       filePath: path,
-       fileName: file.name,
-     );
+  Future<void> _handleUpload(XFile file) async {
+    try {
+      // Convert to File
+      final File imageFile = File(file.path);
+      
+      // Show progress dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Encrypting and saving document...'),
+            ],
+          ),
+        ),
+      );
+      
+      // Get the file extension for document type
+      final String fileExt = file.path.split('.').last.toLowerCase();
+      
+      // Save to local storage (encrypted)
+      final path = await _fileStorageService.uploadFile(
+        file: imageFile,
+        bucket: 'tenant-documents',
+        folder: widget.tenant.id,
+      );
+      
+      // Save document reference to database
+      await context.read<DocumentProvider>().addDocument(
+        tenantId: widget.tenant.id,
+        propertyId: null,
+        documentType: fileExt,
+        filePath: path,
+        fileName: file.name,
+      );
 
-     // Sync all data after document upload
-     await DataSyncService().syncAll(context);
+      // Sync all data after document upload
+      await DataSyncService().syncAll(context);
 
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text('Document uploaded successfully')),
-     );
-   } catch (e) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text('Error uploading document: $e')),
-     );
-   }
- }
+      // Close progress dialog
+      Navigator.pop(context);
 
- Future<void> _viewDocument(dynamic document) async {
-   try {
-     final file = await FileStorageService().downloadFile(
-       bucket: 'tenant-documents',
-       path: document.filePath,
-     );
-     
-     if (file != null) {
-        // Hide loading indicator
-        setState(() => _isLoading = false);
-        
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Document uploaded and encrypted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Close progress dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error uploading document: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _viewDocument(dynamic document) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Decrypting document...'),
+            ],
+          ),
+        ),
+      );
+      
+      final file = await _fileStorageService.downloadFile(
+        bucket: 'tenant-documents',
+        path: document.filePath,
+      );
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      if (file != null) {
         // Use open_file package to open the decrypted file
         final result = await OpenFile.open(file.path);
         if (result.type != ResultType.done) {
@@ -433,31 +592,90 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           );
         }
       } else {
-        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not decrypt the document')),
         );
       }
-   } catch (e) {
-     ScaffoldMessenger.of(context).showSnackBar(
-       SnackBar(content: Text('Error opening document: $e')),
-     );
-   }
- }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error opening document: $e')),
+      );
+    }
+  }
 
- IconData _getDocumentIcon(String documentType) {
-   switch (documentType.toLowerCase()) {
-     case 'pdf':
-       return Icons.picture_as_pdf;
-     case 'doc':
-     case 'docx':
-       return Icons.description;
-     case 'jpg':
-     case 'jpeg':
-     case 'png':
-       return Icons.image;
-     default:
-       return Icons.insert_drive_file;
-   }
- }
+  Future<void> _confirmDeleteDocument(dynamic document) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Document'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Are you sure you want to delete "${document.fileName}"?'),
+            SizedBox(height: 8),
+            Text(
+              'This will permanently remove the encrypted file from your device.',
+              style: TextStyle(color: Colors.red[600], fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // Delete from local storage
+        await _fileStorageService.deleteFile(
+          bucket: 'tenant-documents',
+          path: document.filePath,
+        );
+        
+        // Delete from database
+        await context.read<DocumentProvider>().deleteDocument(document.id);
+        
+        // Sync all data after document deletion
+        await DataSyncService().syncAll(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Document deleted successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting document: $e')),
+        );
+      }
+    }
+  }
+
+  IconData _getDocumentIcon(String documentType) {
+    switch (documentType.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image;
+      default:
+        return Icons.insert_drive_file;
+    }
+  }
 }

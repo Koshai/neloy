@@ -38,7 +38,7 @@ class AuthProvider extends ChangeNotifier {
         // Check if email is confirmed
         if (response.user!.emailConfirmedAt == null) {
           print('❌ Email not verified for: $email');
-          throw 'Please verify your email address before signing in. Check your inbox for a verification code.';
+          throw 'Please verify your email address with the 6-digit code before signing in. Check your inbox for the verification code.';
         }
         
         print('✅ Sign in successful for: $email');
@@ -98,7 +98,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> resendVerificationEmail(String email) async {
+  Future<void> resendVerificationCode(String email) async {
     try {
       print('📧 Resending verification code to: $email');
       
@@ -138,7 +138,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> verifyEmailWithOtp(String email, String otp) async {
     try {
-      print('🔐 Verifying email with code');
+      print('🔐 Verifying email with 6-digit code');
       print('   Email: $email');
       print('   Code: $otp');
       
@@ -177,7 +177,7 @@ class AuthProvider extends ChangeNotifier {
             print('✅ Verified with magiclink type');
           } catch (e3) {
             print('❌ All verification methods failed');
-            throw 'Invalid verification code. Please check your code and try again.';
+            throw 'Invalid verification code. Please check your 6-digit code and try again.';
           }
         }
       }
@@ -187,7 +187,7 @@ class AuthProvider extends ChangeNotifier {
         _isLoggedIn = true;
         notifyListeners();
       } else {
-        throw 'Verification failed. Please check your code and try again.';
+        throw 'Verification failed. Please check your 6-digit code and try again.';
       }
     } catch (e) {
       print('❌ OTP verification error: $e');
@@ -197,7 +197,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> verifyOtpAndUpdatePassword(String email, String otp, String newPassword) async {
     try {
-      print('🔐 Resetting password with code');
+      print('🔐 Resetting password with 6-digit code');
       
       final response = await _supabase.auth.verifyOTP(
         type: OtpType.recovery,
@@ -219,7 +219,7 @@ class AuthProvider extends ChangeNotifier {
           throw 'Failed to update password';
         }
       } else {
-        throw 'Invalid reset code. Please check your code and try again.';
+        throw 'Invalid reset code. Please check your 6-digit code and try again.';
       }
     } catch (e) {
       print('❌ Password reset error: $e');
