@@ -278,7 +278,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Documents (Local Storage)',
+                                'Documents',
                                 style: Theme.of(context).textTheme.titleLarge,
                               ),
                               ElevatedButton.icon(

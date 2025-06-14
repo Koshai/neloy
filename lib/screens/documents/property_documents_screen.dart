@@ -81,7 +81,7 @@ class _PropertyDocumentsScreenState extends State<PropertyDocumentsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Documents (Stored Locally)',
+                  'Documents',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 ElevatedButton.icon(
