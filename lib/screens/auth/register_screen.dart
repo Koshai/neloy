@@ -22,13 +22,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Fixed register_screen.dart - Add proper scrolling
     return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
       ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: _buildCurrentScreen(),
+      body: SafeArea( // Add SafeArea for better keyboard handling
+        child: SingleChildScrollView( // Wrap entire body in SingleChildScrollView
+          padding: EdgeInsets.all(16.0),
+          child: ConstrainedBox( // Ensure minimum height for scrolling
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                        MediaQuery.of(context).padding.top - 
+                        kToolbarHeight - 32, // Account for AppBar and padding
+            ),
+            child: IntrinsicHeight( // Prevent Column from taking infinite height
+              child: _buildCurrentScreen(),
+            ),
+          ),
+        ),
       ),
     );
   }

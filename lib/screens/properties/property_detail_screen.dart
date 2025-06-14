@@ -10,8 +10,7 @@ import '../../models/property.dart';
 import '../../providers/tenant_provider.dart';
 import '../../providers/expense_provider.dart';
 import '../../providers/payment_provider.dart';
-import '../../providers/document_provider.dart';
-import '../../services/file_storage_service.dart';
+import '../documents/pdf_viewer_screen.dart';
 import '../documents/property_documents_screen.dart';
 import '../expenses/add_expense_screen.dart';
 import 'add_edit_property_screen.dart';
@@ -33,9 +32,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   List<Expense> _recentExpenses = [];
   List<Payment> _recentPayments = [];
   bool _isLoading = true;
-  final _fileStorageService = FileStorageService();
-  int _documentCount = 0;
-  double _storageUsedMB = 0.0;
 
   @override
   void initState() {
@@ -53,12 +49,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       
       // Then load property-specific data
       await _loadPropertyData();
-      
-      // Load document information
-      await _loadDocumentInfo();
-      
-      // Load storage information
-      await _loadStorageInfo();
     } catch (e) {
       print('Error loading property data: $e');
       if (mounted) {
@@ -106,32 +96,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     }
   }
 
-  Future<void> _loadDocumentInfo() async {
-    try {
-      await context.read<DocumentProvider>().loadPropertyDocuments(widget.property.id);
-      if (mounted) {
-        setState(() {
-          _documentCount = context.read<DocumentProvider>().documents.length;
-        });
-      }
-    } catch (e) {
-      print('Error loading document info: $e');
-    }
-  }
-
-  Future<void> _loadStorageInfo() async {
-    try {
-      final totalStorage = await _fileStorageService.getTotalStorageUsed();
-      if (mounted) {
-        setState(() {
-          _storageUsedMB = totalStorage / (1024 * 1024);
-        });
-      }
-    } catch (e) {
-      print('Error loading storage info: $e');
-    }
-  }
-
   Future<void> _confirmDeleteProperty(BuildContext context) async {
     final databaseService = DatabaseService();
     final canDelete = await databaseService.canDeleteProperty(widget.property.id);
@@ -150,38 +114,8 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Property'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Are you sure you want to delete this property? This will also delete:'
-            ),
-            SizedBox(height: 12),
-            Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('• All associated documents (${_documentCount} files)', 
-                       style: TextStyle(color: Colors.red[700])),
-                  Text('• All property expenses', 
-                       style: TextStyle(color: Colors.red[700])),
-                  Text('• Local encrypted files from your device', 
-                       style: TextStyle(color: Colors.red[700])),
-                ],
-              ),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'This action cannot be undone.',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-            ),
-          ],
+        content: Text(
+          'Are you sure you want to delete this property? This will also delete all associated documents and expenses. This action cannot be undone.'
         ),
         actions: [
           TextButton(
@@ -192,46 +126,21 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             onPressed: () async {
               try {
                 Navigator.pop(context); // Close dialog
-                
-                // Show deletion progress
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => AlertDialog(
-                    content: Row(
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(width: 16),
-                        Text('Deleting property and local files...'),
-                      ],
-                    ),
-                  ),
-                );
-                
                 await databaseService.deleteProperty(widget.property.id);
                 // Sync all data after deletion
                 await DataSyncService().syncAll(context);
-                
-                // Close progress dialog
-                Navigator.pop(context);
-                
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Property and local files deleted successfully')),
+                  SnackBar(content: Text('Property deleted successfully')),
                 );
                 Navigator.pop(context); // Go back to property list
               } catch (e) {
-                // Close progress dialog if still open
-                if (Navigator.canPop(context)) {
-                  Navigator.pop(context);
-                }
-                
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('Error deleting property: $e')),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('Delete Everything'),
+            child: Text('Delete'),
           ),
         ],
       ),
@@ -305,46 +214,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     ),
                   ),
 
-                  // Local Storage Info Banner
-                  if (_documentCount > 0 || _storageUsedMB > 0)
-                    Container(
-                      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.green[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green[200]!),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.security, color: Colors.green[600], size: 20),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Local Storage: ${_documentCount} documents • ${_storageUsedMB.toStringAsFixed(1)} MB used',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.green[700],
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  'Files encrypted and stored securely on your device',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.green[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
                   // Quick Actions
                   Card(
                     margin: EdgeInsets.symmetric(horizontal: 16),
@@ -398,7 +267,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                 },
                               ),
                               _buildActionButton(
-                                'Documents',
+                                'View Documents',
                                 Icons.folder,
                                 Colors.orange,
                                 () {
@@ -411,7 +280,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                     ),
                                   ).then((_) => _fullSyncAndLoadData());
                                 },
-                                badge: _documentCount > 0 ? _documentCount.toString() : null,
                               ),
                             ],
                           ),
@@ -465,6 +333,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     ),
                   ),
 
+                  // Rest of your code...
                   // Current Tenants section
                   Card(
                     margin: EdgeInsets.all(16),
@@ -542,7 +411,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     ),
                   ),
 
-                  // Recent Expenses section
+                  // Recent Expenses section with your existing code
                   Consumer<ExpenseProvider>(
                     builder: (context, provider, _) {
                       return Card(
@@ -561,8 +430,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      // Navigate to expense list screen
-                                      Navigator.pushNamed(context, '/expenses');
+                                      // Navigate to full expense list
                                     },
                                     child: Text('View All'),
                                   ),
@@ -590,7 +458,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     },
                   ),
 
-                  // Recent Payments section
+                  // Recent Payments section with your existing code
                   Consumer<PaymentProvider>(
                     builder: (context, provider, _) {
                       return Card(
@@ -609,8 +477,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      // Navigate to payment list screen
-                                      Navigator.pushNamed(context, '/payments');
+                                      // Navigate to full payment list
                                     },
                                     child: Text('View All'),
                                   ),
@@ -662,62 +529,27 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
   }
 
-  Widget _buildActionButton(
-    String label, 
-    IconData icon, 
-    Color color, 
-    VoidCallback onPressed, 
-    {String? badge}
-  ) {
-    return Stack(
-      children: [
-        ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 28),
-              SizedBox(height: 4),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
         ),
-        if (badge != null)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              constraints: BoxConstraints(
-                minWidth: 20,
-                minHeight: 20,
-              ),
-              child: Text(
-                badge,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 28),
+          SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12),
           ),
-      ],
+        ],
+      ),
     );
   }
 }

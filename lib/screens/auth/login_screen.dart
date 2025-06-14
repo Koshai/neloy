@@ -23,16 +23,28 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Fixed login_screen.dart - Better keyboard handling
+return Scaffold(
       appBar: AppBar(
         title: Text(_getAppBarTitle()),
         elevation: 0,
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.blue[800],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: _buildCurrentScreen(),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(16.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 
+                        MediaQuery.of(context).padding.top - 
+                        kToolbarHeight - 32,
+            ),
+            child: IntrinsicHeight(
+              child: _buildCurrentScreen(),
+            ),
+          ),
+        ),
       ),
     );
   }
